@@ -6,15 +6,15 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 1. Install dependencies
 
-   ```bash
+```bash
    npm install
-   ```
+```
 
 2. Start the app
 
-   ```bash
+```bash
    npx expo start
-   ```
+```
 
 In the output, you'll find options to open the app in a
 

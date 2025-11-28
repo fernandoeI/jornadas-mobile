@@ -1,19 +1,20 @@
 {
   "expo": {
-    "name": "jornadas-de-atencion",
+    "name": "Jornadas de Atención - Secretaría de Turismo y Desarrollo Económico",
     "slug": "jornadas-de-atencion",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./src/assets/images/icon.png",
     "scheme": "jornadasdeatencion",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "Sistema oficial de levantamiento de información del Secretaría de Turismo y Desarrollo Económico. Formularios para promociones, desarrollo turístico, ferias, comercio y economía social.",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
@@ -21,7 +22,21 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "title": "Jornadas de Atención - Secretaría de Turismo y Desarrollo Económico",
+      "description": "Sistema oficial de levantamiento de información del Secretaría de Turismo y Desarrollo Económico. Formularios para promociones, desarrollo turístico, ferias, comercio y economía social.",
+      "keywords": [
+        "turismo",
+        "formularios",
+        "ministerio",
+        "desarrollo",
+        "ferias",
+        "comercio",
+        "economía social",
+        "promociones"
+      ],
+      "themeColor": "#9A1445",
+      "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-router",
@@ -33,10 +48,18 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "83eec167-69d8-46cc-8bf1-136604545dd9"
+      }
     }
   }
 }

@@ -1,0 +1,122 @@
+project:
+name: "Jornadas de Atención al Pueblo en Territorio"
+organization: "Secretaría de Turismo y Desarrollo Económico del Gobierno del Estado de Tabasco"
+language: "TypeScript"
+framework: "React Native"
+tooling:
+  - "Expo Router"
+  - "TanStack Query"
+  - "React Hook Form"
+  - "Yup"
+  - "Appwrite"
+  - "react-native-reusables"
+  - "NativeWind (Tailwind CSS)"
+
+structure:
+base_dirs:
+  - app/
+  - src/components/
+  - src/hooks/
+  - src/forms/
+  - src/queries/
+  - src/services/
+  - src/providers/
+  - src/utils/
+  - src/types/
+
+rules:
+src/components/:
+  subfolders:
+    common:
+      description: "Componentes compartidos globalmente (Logo, FormHeader, MobileButton, etc.)"
+    modules:
+      description: "Componentes agrupados por módulo o pantalla (auth, formulario-general, touristic-promotion, etc.)"
+    ui:
+      description: "Componentes base de react-native-reusables (Button, Input, Select, Checkbox, etc.)"
+      location: "src/components/ui/"
+  theme:
+    description: "Configuración de temas y estilos"
+    files:
+      - "global.css" # Variables CSS para Tailwind (primary, secondary, etc.)
+      - "src/components/ui/lib/theme.ts" # Tema para React Navigation
+      - "tailwind.config.js" # Configuración de Tailwind CSS
+
+colors:
+  primary: "#981646" # Vino institucional Gobierno del Estado de Tabasco (HSL: 338 75% 34%)
+  secondary: "#C49855" # Dorado Tabasco (HSL: 36 48% 55%)
+  usage:
+    - "Usar clases de Tailwind: bg-primary, text-primary, border-primary, etc."
+    - "Para valores hardcoded, usar los colores hexadecimales definidos arriba"
+    - "Los colores se definen en global.css como variables CSS y en src/components/ui/lib/theme.ts"
+
+styling:
+  approach: "NativeWind (Tailwind CSS para React Native)"
+  usage:
+    - "Usar className en lugar de style props para componentes react-native-reusables"
+    - "Usar style props solo para componentes nativos de React Native cuando sea necesario"
+    - "Los colores se acceden mediante variables CSS: hsl(var(--primary)), hsl(var(--secondary))"
+
+automation:
+  env:
+    prefix: "EXPO_PUBLIC_"
+    file: ".env"
+    note: "Las variables de entorno deben tener el prefijo EXPO_PUBLIC_ para ser accesibles en el cliente"
+  appwrite:
+    auto_import_from: "@/src/services/appwrite"
+    services_location: "@/src/services/"
+    available_services:
+      - "appwrite (cliente y configuración)"
+      - "auth (autenticación)"
+      - "files (almacenamiento)"
+      - "jornadas, apoyo-negocio, desarrollo-comercial, promocion-turistica (colecciones)"
+
+form_handling:
+  library: "React Hook Form con Yup"
+  validation: "Yup schemas en src/forms/schemas/"
+  hooks: "Custom hooks en src/forms/ (ej: usePromocionTuristicaForm.ts)"
+  data_mutations: "TanStack Query (useMutation) en los hooks de formularios"
+
+routing:
+  framework: "Expo Router (file-based routing)"
+  structure:
+    - "app/(auth)/ - Rutas de autenticación"
+    - "app/(protected)/ - Rutas protegidas que requieren autenticación"
+    - "app/index.tsx - Pantalla inicial"
+  navigation:
+    - "Usar router de expo-router para navegación programática"
+    - "Stack.Screen en app/_layout.tsx para configurar rutas"
+
+snippets:
+  ImportAppwrite:
+    description: "Importar servicios de Appwrite"
+    code: |
+      import { appwriteClient, getAppwriteDatabases, getAppwriteAccount } from "@/src/services/appwrite";
+
+  ImportService:
+    description: "Importar un servicio específico"
+    code: |
+      import { authService } from "@/src/services";
+      // o
+      import { jornadasService } from "@/src/services/jornadas";
+
+  UseFormWithYup:
+    description: "Usar React Hook Form con Yup"
+    code: |
+      import { useForm } from "react-hook-form";
+      import { yupResolver } from "@hookform/resolvers/yup";
+      import { validationSchema } from "@/src/forms/schemas/YourForm";
+
+      const { control, handleSubmit, formState: { errors } } = useForm({
+        resolver: yupResolver(validationSchema),
+        defaultValues: { /* valores iniciales */ }
+      });
+
+  UsePrimaryColor:
+    description: "Usar color primario en componentes"
+    code: |
+      // Con Tailwind (recomendado)
+      <Button className="bg-primary text-primary-foreground">
+      <Text className="text-primary">
+
+      // Hardcoded (solo si es necesario)
+      style={{ backgroundColor: "#981646" }}
