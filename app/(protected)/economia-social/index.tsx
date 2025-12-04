@@ -4,6 +4,7 @@ import {
   DatosSolicitante,
   Direccion,
   InformacionSocial,
+  SuccessModal,
 } from "@/src/components/modules/economia-social";
 import { Button } from "@/src/components/ui/button";
 import { THEME } from "@/src/components/ui/lib/theme";
@@ -11,6 +12,7 @@ import { Text } from "@/src/components/ui/text";
 import { useEconomiaSocialForm } from "@/src/forms/useEconomiaSocialForm";
 import { useTheme } from "@/src/providers/ThemeProvider";
 import { useRouter } from "expo-router";
+import { useRef } from "react";
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -35,6 +37,7 @@ export default function EconomiaSocialScreen() {
     control,
     handleSubmit,
     setValue,
+    trigger,
     values,
     errors,
     step,
@@ -59,10 +62,28 @@ export default function EconomiaSocialScreen() {
     getStepIcon,
     goToNextStep,
     goToPreviousStep,
+    showSuccessModal,
+    folio,
+    handleCloseModal,
+    handleAddNew,
   } = useEconomiaSocialForm();
 
   const handleCancel = () => {
     router.push("/(protected)/(tabs)/home");
+  };
+
+  // Ref para acceder a la función de validación del componente Direccion
+  const direccionValidateRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Función para manejar el siguiente paso con validación
+  const handleNextWithValidation = async () => {
+    if (step === 1 && direccionValidateRef.current) {
+      // Si estamos en el step de dirección, usar la función de validación de teléfono
+      await direccionValidateRef.current();
+    } else {
+      // En otros steps, validar y avanzar
+      await goToNextStep();
+    }
   };
 
   return (
@@ -199,11 +220,12 @@ export default function EconomiaSocialScreen() {
                 errors={errors}
                 values={values}
                 setValue={setValue}
+                trigger={trigger}
                 estadoCivilRef={estadoCivilRef}
                 entidadNacimientoRef={entidadNacimientoRef}
                 contentInsets={contentInsets}
                 onCancel={handleCancel}
-                onNext={goToNextStep}
+                onNext={handleNextWithValidation}
                 showButtons={Platform.OS === "web"}
               />
             )}
@@ -223,6 +245,7 @@ export default function EconomiaSocialScreen() {
                 onBack={goToPreviousStep}
                 onNext={goToNextStep}
                 showButtons={Platform.OS === "web"}
+                validateAndNextRef={direccionValidateRef}
               />
             )}
 
@@ -236,7 +259,7 @@ export default function EconomiaSocialScreen() {
                 lenguaIndigenaRef={lenguaIndigenaRef}
                 contentInsets={contentInsets}
                 onBack={goToPreviousStep}
-                onNext={goToNextStep}
+                onNext={handleNextWithValidation}
                 showButtons={Platform.OS === "web"}
               />
             )}
@@ -292,7 +315,7 @@ export default function EconomiaSocialScreen() {
                 >
                   <Text>Cancelar</Text>
                 </Button>
-                <Button onPress={goToNextStep} className="flex-1">
+                <Button onPress={handleNextWithValidation} className="flex-1">
                   <Text>Siguiente</Text>
                 </Button>
               </>
@@ -318,13 +341,21 @@ export default function EconomiaSocialScreen() {
                 >
                   <Text>Regresar</Text>
                 </Button>
-                <Button onPress={goToNextStep} className="flex-1">
+                <Button onPress={handleNextWithValidation} className="flex-1">
                   <Text>Siguiente</Text>
                 </Button>
               </>
             )}
           </View>
         )}
+
+        {/* Modal de éxito */}
+        <SuccessModal
+          open={showSuccessModal}
+          folio={folio}
+          onClose={handleCloseModal}
+          onAddNew={handleAddNew}
+        />
       </View>
     </KeyboardAvoidingView>
   );

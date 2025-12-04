@@ -8,7 +8,15 @@ config.resolver.blockList = [/@monicon\/runtime/].concat(
 );
 
 const configWithMonicon = withMonicon(config, {
-  collections: ["radix-icons", "lucide", "fe", "mdi", "ic", "openmoji"],
+  collections: [
+    "radix-icons",
+    "lucide",
+    "fe",
+    "mdi",
+    "ic",
+    "openmoji",
+    "material-symbols",
+  ],
 });
 
 const configWithNativeWind = withNativeWind(configWithMonicon, {

@@ -12,6 +12,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      initialRouteName="home/index"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -31,30 +32,12 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="home/index"
         options={{
           title: "Inicio",
           tabBarIcon: ({ color, size }) => (
-            <Monicon name="ic:outline-home" size={size || 24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="desarrollo-comercial"
-        options={{
-          title: "Comercial",
-          tabBarIcon: ({ color, size }) => (
-            <Monicon name="ic:outline-store" size={size || 24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="desarrollo-turistico"
-        options={{
-          title: "Turístico",
-          tabBarIcon: ({ color, size }) => (
             <Monicon
-              name="ic:outline-beach-access"
+              name="material-symbols:home-outline-rounded"
               size={size || 24}
               color={color}
             />
@@ -62,12 +45,60 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="ferias-festivales"
+        name="mis-solicitudes/index"
         options={{
-          title: "Ferias",
+          title: "Mis Solicitudes",
           tabBarIcon: ({ color, size }) => (
             <Monicon
-              name="ic:outline-festival"
+              name="material-symbols:list-alt-check-outline"
+              size={size || 24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="desarrollo-comercial/index"
+        options={{
+          title: "Desarrollo Comercial",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Monicon
+              name="ic:outline-business"
+              size={size || 24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="desarrollo-turistico/index"
+        options={{
+          title: "Desarrollo Turístico",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Monicon name="ic:outline-tour" size={size || 24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="ferias-festivales/index"
+        options={{
+          title: "Ferias y Festivales",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Monicon name="ic:outline-event" size={size || 24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="impulso-inversiones/index"
+        options={{
+          title: "Impulso de Inversiones",
+          href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Monicon
+              name="ic:outline-investment"
               size={size || 24}
               color={color}
             />

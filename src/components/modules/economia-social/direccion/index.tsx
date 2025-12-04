@@ -16,33 +16,13 @@ import {
   MUNICIPIOS_TABASCO,
   VIALIDAD_CHOICES,
 } from "@/src/constants/tanda";
-import { EconomiaSocialFormData } from "@/src/forms/schemas/EconomiaSocialForm";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import type { Option, TriggerRef } from "@rn-primitives/select";
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Option } from "@rn-primitives/select";
 import { Controller } from "react-hook-form";
-import { View } from "react-native";
-
-interface IDireccion {
-  control: Control<EconomiaSocialFormData, any, any>;
-  errors: FieldErrors<EconomiaSocialFormData>;
-  values: EconomiaSocialFormData;
-  setValue: (name: keyof EconomiaSocialFormData, value: any) => void;
-  municipioRef: React.RefObject<TriggerRef | null>;
-  localidadRef: React.RefObject<TriggerRef | null>;
-  asentamientoTipoRef: React.RefObject<TriggerRef | null>;
-  vialidadTipoRef: React.RefObject<TriggerRef | null>;
-  comprobanteDomicilioRef: React.RefObject<TriggerRef | null>;
-  contentInsets: {
-    top: number;
-    bottom: number | undefined;
-    left: number;
-    right: number;
-  };
-  onBack: () => void;
-  onNext: () => void;
-  showButtons?: boolean;
-}
+import { ActivityIndicator, View } from "react-native";
+import { openSelect, PHONE_LENGTH, POSTAL_CODE_LENGTH } from "./constants";
+import type { IDireccion } from "./types";
+import { useDireccion } from "./useDireccion";
 
 export const Direccion: React.FC<IDireccion> = ({
   control,
@@ -58,24 +38,36 @@ export const Direccion: React.FC<IDireccion> = ({
   onBack,
   onNext,
   showButtons = true,
+  validateAndNextRef,
 }) => {
   const { colorScheme } = useTheme();
   const foregroundColor = THEME[colorScheme].foreground;
   const mutedForegroundColor = THEME[colorScheme].mutedForeground;
   const destructiveColor = THEME[colorScheme].destructive;
 
-  // TODO: Implementar carga de localidades basado en municipio seleccionado
-  const localidades: { id: number; nombre: string }[] = [];
+  const {
+    localidades,
+    isLoadingLocalidades,
+    isValidatingTelefono,
+    handleMunicipioChange,
+    handleNumericInput,
+    getLocalidadPlaceholder,
+    validatePhoneAndProceed,
+  } = useDireccion({
+    values,
+    setValue,
+    onNext,
+    validateAndNextRef,
+  });
 
   return (
     <View className="gap-4">
-      {/* Municipio */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Municipio *
+          Municipio
         </Text>
         <Controller
           control={control}
@@ -93,20 +85,13 @@ export const Direccion: React.FC<IDireccion> = ({
                   : undefined
               }
               onValueChange={(option: Option) => {
-                if (option && option.value) {
-                  onChange(Number(option.value));
-                  // Reset localidad cuando cambia municipio
-                  setValue("localidad", null);
-                }
+                onChange(option?.value ? Number(option.value) : null);
+                handleMunicipioChange(option);
               }}
             >
               <SelectTrigger
                 ref={municipioRef}
-                onTouchStart={() => {
-                  if (municipioRef.current && "open" in municipioRef.current) {
-                    (municipioRef.current as any).open();
-                  }
-                }}
+                onTouchStart={() => openSelect(municipioRef)}
               >
                 <SelectValue placeholder="Selecciona el municipio" />
               </SelectTrigger>
@@ -133,75 +118,87 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Localidad */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Localidad *
+          Localidad
         </Text>
         <Controller
           control={control}
           name="localidad"
           render={({ field: { onChange, value } }) => (
-            <Select
-              value={
-                value
-                  ? {
-                      label:
-                        localidades.find((l) => l.id === value)?.nombre || "",
-                      value: String(value),
-                    }
-                  : undefined
-              }
-              onValueChange={(option: Option) => {
-                if (option && option.value) {
-                  onChange(Number(option.value));
+            <View style={{ position: "relative" }}>
+              <Select
+                value={
+                  value
+                    ? {
+                        label:
+                          localidades.find((l) => l.id === value)?.nombre || "",
+                        value: String(value),
+                      }
+                    : undefined
                 }
-              }}
-              disabled={!values.municipio}
-            >
-              <SelectTrigger
-                ref={localidadRef}
-                onTouchStart={() => {
-                  if (localidadRef.current && "open" in localidadRef.current) {
-                    (localidadRef.current as any).open();
+                onValueChange={(option: Option) => {
+                  if (option?.value) {
+                    onChange(Number(option.value));
                   }
                 }}
+                disabled={!values.municipio || isLoadingLocalidades}
               >
-                <SelectValue
-                  placeholder={
-                    values.municipio
-                      ? "Selecciona la localidad"
-                      : "Primero selecciona un municipio"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent insets={contentInsets}>
-                <SelectGroup>
-                  {localidades.length > 0 ? (
-                    localidades.map((localidad) => (
+                <SelectTrigger
+                  ref={localidadRef}
+                  onTouchStart={() => openSelect(localidadRef)}
+                >
+                  <SelectValue placeholder={getLocalidadPlaceholder()} />
+                </SelectTrigger>
+                <SelectContent insets={contentInsets}>
+                  <SelectGroup>
+                    {isLoadingLocalidades ? (
                       <SelectItem
-                        key={localidad.id}
-                        label={localidad.nombre}
-                        value={String(localidad.id)}
+                        label="Cargando localidades..."
+                        value="loading"
+                        disabled
                       >
-                        {localidad.nombre}
+                        Cargando localidades...
                       </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem
-                      label="No hay localidades disponibles"
-                      value="none"
-                      disabled
-                    >
-                      No hay localidades disponibles
-                    </SelectItem>
-                  )}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+                    ) : localidades.length > 0 ? (
+                      localidades.map((localidad) => (
+                        <SelectItem
+                          key={localidad.id}
+                          label={localidad.nombre}
+                          value={String(localidad.id)}
+                        >
+                          {localidad.nombre}
+                        </SelectItem>
+                      ))
+                    ) : values.municipio ? (
+                      <SelectItem
+                        label="No hay localidades disponibles"
+                        value="none"
+                        disabled
+                      >
+                        No hay localidades disponibles
+                      </SelectItem>
+                    ) : null}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {isLoadingLocalidades && (
+                <View
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    top: 0,
+                    bottom: 0,
+                    justifyContent: "center",
+                  }}
+                >
+                  <ActivityIndicator size="small" />
+                </View>
+              )}
+            </View>
           )}
         />
         {errors.localidad && (
@@ -211,13 +208,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Tipo de Asentamiento */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Tipo de Asentamiento *
+          Tipo de asentamiento
         </Text>
         <Controller
           control={control}
@@ -235,21 +231,14 @@ export const Direccion: React.FC<IDireccion> = ({
                   : undefined
               }
               onValueChange={(option: Option) => {
-                if (option && option.value) {
+                if (option?.value) {
                   onChange(option.value);
                 }
               }}
             >
               <SelectTrigger
                 ref={asentamientoTipoRef}
-                onTouchStart={() => {
-                  if (
-                    asentamientoTipoRef.current &&
-                    "open" in asentamientoTipoRef.current
-                  ) {
-                    (asentamientoTipoRef.current as any).open();
-                  }
-                }}
+                onTouchStart={() => openSelect(asentamientoTipoRef)}
               >
                 <SelectValue placeholder="Selecciona el tipo de asentamiento" />
               </SelectTrigger>
@@ -276,13 +265,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Nombre del Asentamiento */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Nombre del Asentamiento *
+          Nombre del asentamiento
         </Text>
         <Controller
           control={control}
@@ -304,13 +292,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Tipo de Vialidad */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Tipo de Vialidad *
+          Tipo de vialidad
         </Text>
         <Controller
           control={control}
@@ -328,21 +315,14 @@ export const Direccion: React.FC<IDireccion> = ({
                   : undefined
               }
               onValueChange={(option: Option) => {
-                if (option && option.value) {
+                if (option?.value) {
                   onChange(option.value);
                 }
               }}
             >
               <SelectTrigger
                 ref={vialidadTipoRef}
-                onTouchStart={() => {
-                  if (
-                    vialidadTipoRef.current &&
-                    "open" in vialidadTipoRef.current
-                  ) {
-                    (vialidadTipoRef.current as any).open();
-                  }
-                }}
+                onTouchStart={() => openSelect(vialidadTipoRef)}
               >
                 <SelectValue placeholder="Selecciona el tipo de vialidad" />
               </SelectTrigger>
@@ -369,13 +349,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Nombre de la Vialidad */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Nombre de la Vialidad *
+          Nombre de la vialidad
         </Text>
         <Controller
           control={control}
@@ -397,13 +376,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Número Exterior */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Número Exterior *
+          Número exterior
         </Text>
         <Controller
           control={control}
@@ -429,13 +407,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Número Interior */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Número Interior (opcional)
+          Número interior (opcional)
         </Text>
         <Controller
           control={control}
@@ -461,13 +438,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Código Postal */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Código Postal * (5 dígitos)
+          Código postal
         </Text>
         <Controller
           control={control}
@@ -478,12 +454,11 @@ export const Direccion: React.FC<IDireccion> = ({
               placeholderTextColor={mutedForegroundColor}
               value={value}
               onChangeText={(text) => {
-                const numbersOnly = text.replace(/[^0-9]/g, "");
-                onChange(numbersOnly);
+                onChange(handleNumericInput(text));
               }}
               onBlur={onBlur}
               keyboardType="numeric"
-              maxLength={5}
+              maxLength={POSTAL_CODE_LENGTH}
             />
           )}
         />
@@ -494,13 +469,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Número de Celular 1 */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Número de Celular 1 *
+          Número de celular 1
         </Text>
         <Controller
           control={control}
@@ -511,12 +485,11 @@ export const Direccion: React.FC<IDireccion> = ({
               placeholderTextColor={mutedForegroundColor}
               value={value}
               onChangeText={(text) => {
-                const numbersOnly = text.replace(/[^0-9]/g, "");
-                onChange(numbersOnly);
+                onChange(handleNumericInput(text));
               }}
               onBlur={onBlur}
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={PHONE_LENGTH}
             />
           )}
         />
@@ -527,13 +500,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Número de Celular 2 */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Número de Celular 2 (opcional)
+          Número de celular 2 (opcional)
         </Text>
         <Controller
           control={control}
@@ -544,12 +516,12 @@ export const Direccion: React.FC<IDireccion> = ({
               placeholderTextColor={mutedForegroundColor}
               value={value || ""}
               onChangeText={(text) => {
-                const numbersOnly = text.replace(/[^0-9]/g, "");
+                const numbersOnly = handleNumericInput(text);
                 onChange(numbersOnly || undefined);
               }}
               onBlur={onBlur}
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={PHONE_LENGTH}
             />
           )}
         />
@@ -560,13 +532,12 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Comprobante de Domicilio */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Comprobante de Domicilio (opcional)
+          Comprobante de domicilio (opcional)
         </Text>
         <Controller
           control={control}
@@ -584,21 +555,14 @@ export const Direccion: React.FC<IDireccion> = ({
                   : undefined
               }
               onValueChange={(option: Option) => {
-                if (option && option.value) {
+                if (option?.value) {
                   onChange(option.value);
                 }
               }}
             >
               <SelectTrigger
                 ref={comprobanteDomicilioRef}
-                onTouchStart={() => {
-                  if (
-                    comprobanteDomicilioRef.current &&
-                    "open" in comprobanteDomicilioRef.current
-                  ) {
-                    (comprobanteDomicilioRef.current as any).open();
-                  }
-                }}
+                onTouchStart={() => openSelect(comprobanteDomicilioRef)}
               >
                 <SelectValue placeholder="Selecciona el comprobante de domicilio" />
               </SelectTrigger>
@@ -625,14 +589,24 @@ export const Direccion: React.FC<IDireccion> = ({
         )}
       </View>
 
-      {/* Botones de navegación */}
       {showButtons && (
         <View className="flex-row gap-4 mt-6">
           <Button variant="outline" onPress={onBack} className="flex-1">
             <Text>Regresar</Text>
           </Button>
-          <Button onPress={onNext} className="flex-1">
-            <Text>Siguiente</Text>
+          <Button
+            onPress={validatePhoneAndProceed}
+            className="flex-1"
+            disabled={isValidatingTelefono}
+          >
+            {isValidatingTelefono ? (
+              <View className="flex-row items-center gap-2">
+                <ActivityIndicator size="small" color="white" />
+                <Text>Validando...</Text>
+              </View>
+            ) : (
+              <Text>Siguiente</Text>
+            )}
           </Button>
         </View>
       )}

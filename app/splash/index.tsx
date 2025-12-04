@@ -1,7 +1,27 @@
-import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "@/src/providers/AuthProvider";
+import { useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { ActivityIndicator, Image, View } from "react-native";
 
 const Splash = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading) {
+      // Pequeño delay para mostrar el splash
+      const timer = setTimeout(() => {
+        if (isAuthenticated) {
+          router.replace("/(protected)/(tabs)/home");
+        } else {
+          router.replace("/(auth)/login");
+        }
+      }, 1500); // Mostrar splash por 1.5 segundos
+
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, isAuthenticated, router]);
+
   return (
     <View
       style={{
@@ -19,18 +39,14 @@ const Splash = () => {
           justifyContent: "center",
         }}
       >
-        {/* Image component - using placeholder */}
-        <View
+        <Image
+          source={require("@/src/assets/images/JORNADAS_Vblanco.png")}
           style={{
             width: "100%",
             height: 176,
-            marginTop: 128,
-            alignItems: "center",
-            justifyContent: "center",
+            resizeMode: "contain",
           }}
-        >
-          <ActivityIndicator size="large" color="white" />
-        </View>
+        />
       </View>
       <View style={{ height: "25%", justifyContent: "center" }}>
         <ActivityIndicator size={64} color="white" />

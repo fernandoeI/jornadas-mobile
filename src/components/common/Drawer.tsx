@@ -248,7 +248,11 @@ function DrawerContent({ onClose }: { onClose: () => void }) {
             className="border-destructive mb-4"
           >
             <View className="flex-row items-center gap-2">
-              <Monicon name="ic:outline-logout" size={20} color={iconColor} />
+              <Monicon
+                name="ic:outline-logout"
+                size={20}
+                color={THEME[colorScheme].destructive}
+              />
               <Text className="text-destructive font-medium">
                 Cerrar Sesión
               </Text>

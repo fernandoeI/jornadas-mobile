@@ -1,3 +1,7 @@
+import {
+  isValidAgeRange,
+  parseDateToParts,
+} from "@/src/components/common/dateHelpers";
 import * as Yup from "yup";
 
 // Tipos para el formulario de Economía Social basado en Tanda2Request
@@ -65,9 +69,17 @@ export const economiaSocialValidationSchema = Yup.object().shape({
   nombre: Yup.string().required("El nombre es requerido"),
   apellido1: Yup.string().required("El primer apellido es requerido"),
   apellido2: Yup.string().optional(),
-  fecha_nacimiento: Yup.string().required(
-    "La fecha de nacimiento es requerida"
-  ),
+  fecha_nacimiento: Yup.string()
+    .required("La fecha de nacimiento es requerida")
+    .test(
+      "age-range",
+      "La edad debe estar entre 30 y 59 años",
+      function (value) {
+        if (!value) return false;
+        const { day, month, year } = parseDateToParts(value);
+        return isValidAgeRange(day, month, year, 30, 59);
+      }
+    ),
   entidad_nacimiento: Yup.string().required(
     "La entidad de nacimiento es requerida"
   ),

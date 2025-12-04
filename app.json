@@ -10,14 +10,16 @@
     "newArchEnabled": true,
     "description": "Sistema oficial de levantamiento de información del Secretaría de Turismo y Desarrollo Económico. Formularios para promociones, desarrollo turístico, ferias, comercio y economía social.",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fernandovidalturismo.jornadasdeatencion"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#9A1445"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.fernandovidalturismo.jornadasdeatencion"
     },
     "web": {
       "bundler": "metro",
@@ -43,10 +45,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./src/assets/images/JORNADAS_Vblanco.png",
+          "imageWidth": 288,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#9A1445"
         }
       ],
       "expo-font",

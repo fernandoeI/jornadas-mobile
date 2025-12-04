@@ -1,4 +1,6 @@
 // Componentes comunes reutilizables
+export * from "./dateHelpers";
+export { DateOfBirthInput } from "./DateOfBirthInput";
 export { FormHeader } from "./form-header";
 export { default as FormSectionTitle } from "./FormSectionTitle";
 export { default as MobileButton } from "./mobile-button";

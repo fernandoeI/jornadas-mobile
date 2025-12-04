@@ -11,7 +11,7 @@ import { cn } from "@/src/components/ui/lib/utils";
 import { Text } from "@/src/components/ui/text";
 import { useTheme } from "@/src/providers/ThemeProvider";
 import { UserData } from "@/src/services/auth";
-import { LogOutIcon, SettingsIcon } from "lucide-react-native";
+import { LogOutIcon } from "lucide-react-native";
 import * as React from "react";
 import { Modal, Platform, TouchableWithoutFeedback, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,22 +49,17 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
           size="sm"
           onPress={() => {
             setIsOpen(false);
-            // TODO: Navigate to account settings screen
-          }}
-        >
-          <Icon as={SettingsIcon} className="size-4" />
-          <Text>Gestionar Cuenta</Text>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onPress={() => {
-            setIsOpen(false);
             onLogout();
           }}
         >
-          <Icon as={LogOutIcon} className="size-4" />
-          <Text>Cerrar Sesión</Text>
+          <Icon
+            as={LogOutIcon}
+            className="size-4"
+            color={THEME[colorScheme].destructive}
+          />
+          <Text style={{ color: THEME[colorScheme].destructive }}>
+            Cerrar Sesión
+          </Text>
         </Button>
       </View>
     </View>

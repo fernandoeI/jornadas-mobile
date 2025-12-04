@@ -1,3 +1,4 @@
+import { DateOfBirthInput } from "@/src/components/common";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { THEME } from "@/src/components/ui/lib/theme";
@@ -11,36 +12,20 @@ import {
 } from "@/src/components/ui/select";
 import { Text } from "@/src/components/ui/text";
 import { EDO_CIVIL_CHOICES, ESTADOS_MEXICO } from "@/src/constants/tanda";
-import { EconomiaSocialFormData } from "@/src/forms/schemas/EconomiaSocialForm";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import type { Option, TriggerRef } from "@rn-primitives/select";
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Option } from "@rn-primitives/select";
 import { Controller } from "react-hook-form";
-import { View } from "react-native";
-
-interface IDatosSolicitante {
-  control: Control<EconomiaSocialFormData, any, any>;
-  errors: FieldErrors<EconomiaSocialFormData>;
-  values: EconomiaSocialFormData;
-  setValue: (name: keyof EconomiaSocialFormData, value: any) => void;
-  estadoCivilRef: React.RefObject<TriggerRef | null>;
-  entidadNacimientoRef: React.RefObject<TriggerRef | null>;
-  contentInsets: {
-    top: number;
-    bottom: number | undefined;
-    left: number;
-    right: number;
-  };
-  onCancel: () => void;
-  onNext: () => void;
-  showButtons?: boolean;
-}
+import { ActivityIndicator, View } from "react-native";
+import { openSelect } from "./constants";
+import { type IDatosSolicitante } from "./types";
+import { useDatosSolicitante } from "./useDatosSolicitante";
 
 export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
   control,
   errors,
   values,
   setValue,
+  trigger,
   estadoCivilRef,
   entidadNacimientoRef,
   contentInsets,
@@ -53,15 +38,106 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
   const mutedForegroundColor = THEME[colorScheme].mutedForeground;
   const destructiveColor = THEME[colorScheme].destructive;
 
+  const {
+    isValidatingCurp,
+    isCurpValidated,
+    allowManualEdit,
+    isFormComplete,
+    handleValidateCurp,
+  } = useDatosSolicitante({
+    values,
+    errors,
+    setValue,
+    trigger,
+  });
+
   return (
     <View className="gap-4">
+      {/* CURP */}
+      <View className="gap-2">
+        <Text
+          className="text-base font-semibold"
+          style={{ color: foregroundColor }}
+        >
+          Curp
+        </Text>
+        <View style={{ position: "relative" }}>
+          <Controller
+            control={control}
+            name="curp_txt"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                placeholder="XEXX010101HNEXXXA4"
+                placeholderTextColor={mutedForegroundColor}
+                value={value}
+                onChangeText={(text) => {
+                  const upperText = text.toUpperCase();
+                  onChange(upperText);
+                }}
+                onBlur={onBlur}
+                maxLength={18}
+                className="pr-24"
+                style={{ paddingRight: 90 }}
+              />
+            )}
+          />
+          <View
+            style={{
+              position: "absolute",
+              right: 8,
+              top: 0,
+              bottom: 0,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {isCurpValidated ? (
+              <Button
+                disabled
+                size="sm"
+                style={{
+                  minWidth: 70,
+                  height: 32,
+                  backgroundColor: "#22c55e",
+                  opacity: 1,
+                }}
+              >
+                <Text className="text-xs text-white">Validado</Text>
+              </Button>
+            ) : (
+              <Button
+                onPress={handleValidateCurp}
+                disabled={
+                  isValidatingCurp ||
+                  !values.curp_txt ||
+                  values.curp_txt.length !== 18
+                }
+                size="sm"
+                style={{ minWidth: 70, height: 32 }}
+              >
+                {isValidatingCurp ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="text-xs">Validar</Text>
+                )}
+              </Button>
+            )}
+          </View>
+        </View>
+        {errors.curp_txt && (
+          <Text className="text-xs mt-1" style={{ color: destructiveColor }}>
+            {errors.curp_txt.message}
+          </Text>
+        )}
+      </View>
+
       {/* Nombre */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Nombre *
+          Nombre
         </Text>
         <Controller
           control={control}
@@ -73,6 +149,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
+              editable={allowManualEdit}
             />
           )}
         />
@@ -89,7 +166,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Primer Apellido *
+          Primer apellido
         </Text>
         <Controller
           control={control}
@@ -101,6 +178,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
+              editable={allowManualEdit}
             />
           )}
         />
@@ -117,7 +195,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Segundo Apellido (opcional)
+          Segundo apellido (opcional)
         </Text>
         <Controller
           control={control}
@@ -129,6 +207,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
               value={value || ""}
               onChangeText={onChange}
               onBlur={onBlur}
+              editable={allowManualEdit}
             />
           )}
         />
@@ -145,28 +224,24 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Fecha de Nacimiento * (DD/MM/AAAA)
+          Fecha de nacimiento
         </Text>
         <Controller
           control={control}
           name="fecha_nacimiento"
           render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={mutedForegroundColor}
-              value={value}
-              onChangeText={onChange}
+            <DateOfBirthInput
+              value={value || ""}
+              onChange={onChange}
               onBlur={onBlur}
-              keyboardType="numeric"
-              maxLength={10}
+              disabled={!allowManualEdit}
+              error={errors.fecha_nacimiento?.message}
+              contentInsets={contentInsets}
+              minAge={30}
+              maxAge={59}
             />
           )}
         />
-        {errors.fecha_nacimiento && (
-          <Text className="text-xs mt-1" style={{ color: destructiveColor }}>
-            {errors.fecha_nacimiento.message}
-          </Text>
-        )}
       </View>
 
       {/* Entidad de Nacimiento */}
@@ -175,7 +250,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Entidad de Nacimiento *
+          Entidad de nacimiento
         </Text>
         <Controller
           control={control}
@@ -197,17 +272,14 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
                   onChange(option.value);
                 }
               }}
+              disabled={!allowManualEdit}
             >
               <SelectTrigger
                 ref={entidadNacimientoRef}
-                onTouchStart={() => {
-                  if (
-                    entidadNacimientoRef.current &&
-                    "open" in entidadNacimientoRef.current
-                  ) {
-                    (entidadNacimientoRef.current as any).open();
-                  }
-                }}
+                disabled={!allowManualEdit}
+                onTouchStart={() =>
+                  openSelect(entidadNacimientoRef, allowManualEdit)
+                }
               >
                 <SelectValue placeholder="Selecciona la entidad de nacimiento" />
               </SelectTrigger>
@@ -240,7 +312,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Estado Civil *
+          Estado civil
         </Text>
         <Controller
           control={control}
@@ -262,17 +334,14 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
                   onChange(option.value);
                 }
               }}
+              disabled={!isCurpValidated && !allowManualEdit}
             >
               <SelectTrigger
                 ref={estadoCivilRef}
-                onTouchStart={() => {
-                  if (
-                    estadoCivilRef.current &&
-                    "open" in estadoCivilRef.current
-                  ) {
-                    (estadoCivilRef.current as any).open();
-                  }
-                }}
+                disabled={!isCurpValidated && !allowManualEdit}
+                onTouchStart={() =>
+                  openSelect(estadoCivilRef, isCurpValidated || allowManualEdit)
+                }
               >
                 <SelectValue placeholder="Selecciona el estado civil" />
               </SelectTrigger>
@@ -299,45 +368,13 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
         )}
       </View>
 
-      {/* CURP */}
-      <View className="gap-2">
-        <Text
-          className="text-base font-semibold"
-          style={{ color: foregroundColor }}
-        >
-          CURP * (18 caracteres)
-        </Text>
-        <Controller
-          control={control}
-          name="curp_txt"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              placeholder="ABCD123456HIJKLM01"
-              placeholderTextColor={mutedForegroundColor}
-              value={value}
-              onChangeText={(text) => {
-                const upperText = text.toUpperCase();
-                onChange(upperText);
-              }}
-              onBlur={onBlur}
-              maxLength={18}
-            />
-          )}
-        />
-        {errors.curp_txt && (
-          <Text className="text-xs mt-1" style={{ color: destructiveColor }}>
-            {errors.curp_txt.message}
-          </Text>
-        )}
-      </View>
-
       {/* Correo */}
       <View className="gap-2">
         <Text
           className="text-base font-semibold"
           style={{ color: foregroundColor }}
         >
-          Correo Electrónico *
+          Correo electrónico
         </Text>
         <Controller
           control={control}
@@ -351,6 +388,7 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
               onBlur={onBlur}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={isCurpValidated || allowManualEdit}
             />
           )}
         />
@@ -367,7 +405,11 @@ export const DatosSolicitante: React.FC<IDatosSolicitante> = ({
           <Button variant="outline" onPress={onCancel} className="flex-1">
             <Text>Cancelar</Text>
           </Button>
-          <Button onPress={onNext} className="flex-1">
+          <Button
+            onPress={onNext}
+            disabled={!isFormComplete}
+            className="flex-1"
+          >
             <Text>Siguiente</Text>
           </Button>
         </View>

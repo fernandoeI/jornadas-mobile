@@ -139,18 +139,6 @@ export function SignInForm() {
                   {errors.password.message}
                 </Text>
               )}
-              <Button
-                variant="link"
-                size="sm"
-                className="mt-2 web:h-fit ml-auto h-4 px-1 py-0 sm:h-4"
-                onPress={() => {
-                  // TODO: Navigate to forgot password screen
-                }}
-              >
-                <Text className="font-normal leading-4">
-                  ¿Olvidaste tu contraseña?
-                </Text>
-              </Button>
             </View>
             <Button
               className="w-full"
