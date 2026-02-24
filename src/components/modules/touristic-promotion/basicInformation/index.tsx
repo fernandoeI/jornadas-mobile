@@ -27,6 +27,12 @@ import type { Control, FieldErrors } from "react-hook-form";
 import { Controller } from "react-hook-form";
 import { Platform, View } from "react-native";
 
+// Función helper para convertir opciones a formato oración (solo primera letra mayúscula)
+const formatToSentence = (text: string): string => {
+  const withSpaces = text.replace(/-/g, " ");
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1).toLowerCase();
+};
+
 interface IBasicInformation {
   control: Control<PromocionTuristicaFormData, any, any>;
   errors: FieldErrors<PromocionTuristicaFormData>;
@@ -263,7 +269,7 @@ export const BasicInformation: React.FC<IBasicInformation> = ({
               value={
                 value
                   ? {
-                      label: value,
+                      label: formatToSentence(value),
                       value: value,
                     }
                   : undefined
@@ -289,11 +295,14 @@ export const BasicInformation: React.FC<IBasicInformation> = ({
               </SelectTrigger>
               <SelectContent insets={contentInsets}>
                 <SelectGroup>
-                  {NIVELES_CONOCIMIENTO.map((nivel) => (
-                    <SelectItem key={nivel} label={nivel} value={nivel}>
-                      {nivel}
+                  {NIVELES_CONOCIMIENTO.map((nivel) => {
+                    const labelFormatted = formatToSentence(nivel);
+                    return (
+                      <SelectItem key={nivel} label={labelFormatted} value={nivel}>
+                        {labelFormatted}
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectGroup>
               </SelectContent>
             </Select>

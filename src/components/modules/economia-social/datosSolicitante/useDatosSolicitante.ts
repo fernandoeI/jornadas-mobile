@@ -1,5 +1,5 @@
 import { EconomiaSocialFormData } from "@/src/forms/schemas/EconomiaSocialForm";
-import { economiaSocialService } from "@/src/services/economia-social";
+import { usePrecheckCurp, useValidateRenapo } from "@/src/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FieldErrors } from "react-hook-form";
 import { Alert } from "react-native";
@@ -32,6 +32,10 @@ export const useDatosSolicitante = ({
   const [isValidatingCurp, setIsValidatingCurp] = useState(false);
   const [isCurpValidated, setIsCurpValidated] = useState(false);
   const [allowManualEdit, setAllowManualEdit] = useState(false);
+
+  // Hooks para validaciones
+  const precheckCurpMutation = usePrecheckCurp();
+  const validateRenapoMutation = useValidateRenapo();
 
   // Resetear el estado de validación cuando cambie el CURP
   useEffect(() => {
@@ -104,7 +108,12 @@ export const useDatosSolicitante = ({
     try {
       // Primero verificar si ya existe un registro previo
       try {
-        const precheckResponse = await economiaSocialService.precheckCurp(curp);
+        const precheckResponse = await new Promise((resolve, reject) => {
+          precheckCurpMutation.mutate(curp, {
+            onSuccess: resolve,
+            onError: reject,
+          });
+        });
 
         // Si existe un registro previo, mostrar error y no continuar
         const hasExistingRecord =
@@ -153,7 +162,12 @@ export const useDatosSolicitante = ({
       }
 
       // Si no existe registro previo, continuar con la validación RENAPO
-      const response = await economiaSocialService.validateRenapo(curp);
+      const response = await new Promise((resolve, reject) => {
+        validateRenapoMutation.mutate(curp, {
+          onSuccess: resolve,
+          onError: reject,
+        });
+      });
 
       // Verificar si la respuesta existe
       if (!response) {

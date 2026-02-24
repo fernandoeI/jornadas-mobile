@@ -39,6 +39,10 @@ export default function ProtectedLayout() {
           name="fondos-financiamiento"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="gestionar-cuenta"
+          options={{ headerShown: false }}
+        />
       </Stack>
     </DrawerProvider>
   );

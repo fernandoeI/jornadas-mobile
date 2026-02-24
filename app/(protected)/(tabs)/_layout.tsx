@@ -2,9 +2,11 @@ import { THEME } from "@/src/components/ui/lib/theme";
 import { useTheme } from "@/src/providers/ThemeProvider";
 import Monicon from "@monicon/native";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const { colorScheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const backgroundColor = THEME[colorScheme].background;
   const borderColor = THEME[colorScheme].border;
   const iconColor = THEME[colorScheme].foreground;
@@ -19,8 +21,8 @@ export default function TabsLayout() {
           backgroundColor,
           borderTopColor: borderColor,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 12),
           paddingTop: 8,
         },
         tabBarActiveTintColor: activeIconColor,

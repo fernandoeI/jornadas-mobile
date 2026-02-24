@@ -2,24 +2,57 @@
   "expo": {
     "name": "Jornadas de Atención - Secretaría de Turismo y Desarrollo Económico",
     "slug": "jornadas-de-atencion",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
-    "scheme": "jornadasdeatencion",
+    "scheme": "jornadas",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "description": "Sistema oficial de levantamiento de información del Secretaría de Turismo y Desarrollo Económico. Formularios para promociones, desarrollo turístico, ferias, comercio y economía social.",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fernandovidalturismo.jornadasdeatencion"
+      "bundleIdentifier": "com.turismo.jornadasdeatencion",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Esta aplicación necesita acceso a tu ubicación para registrar las coordenadas de los atractivos turísticos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Esta aplicación necesita acceso a tu ubicación para registrar las coordenadas de los atractivos turísticos.",
+        "NSCameraUsageDescription": "Esta aplicación necesita acceso a la cámara para tomar fotografías de documentos de identificación y atractivos turísticos.",
+        "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a tu galería de fotos para seleccionar imágenes de documentos y atractivos turísticos.",
+        "NSPhotoLibraryAddUsageDescription": "Esta aplicación necesita acceso para guardar fotos en tu galería."
+      }
     },
     "android": {
+      "icon": "./src/assets/images/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#9A1445"
+        "foregroundImage": "./src/assets/images/icon.png",
+        "backgroundColor": "#9A1445",
+        "monochromeImage": "./src/assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.fernandovidalturismo.jornadasdeatencion"
+      "package": "com.turismo.jornadasdeatencion",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "blockedPermissions": []
     },
     "web": {
       "bundler": "metro",
@@ -52,7 +85,28 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Esta aplicación necesita acceso a tu ubicación para registrar las coordenadas de los atractivos turísticos.",
+          "locationAlwaysPermission": "Esta aplicación necesita acceso a tu ubicación para registrar las coordenadas de los atractivos turísticos.",
+          "locationWhenInUsePermission": "Esta aplicación necesita acceso a tu ubicación para registrar las coordenadas de los atractivos turísticos."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotografías de documentos de identificación y atractivos turísticos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Esta aplicación necesita acceso a tu galería de fotos para seleccionar imágenes de documentos y atractivos turísticos.",
+          "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotografías de documentos de identificación y atractivos turísticos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -61,7 +115,14 @@
       "router": {},
       "eas": {
         "projectId": "83eec167-69d8-46cc-8bf1-136604545dd9"
-      }
+      },
+      "appwriteEndpoint": "https://jornadasturismo.tabasco.gob.mx/v1",
+      "appwriteProjectId": "",
+      "ocrSpaceApiKey": ""
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/83eec167-69d8-46cc-8bf1-136604545dd9"
     }
   }
 }

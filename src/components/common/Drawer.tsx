@@ -218,6 +218,23 @@ function DrawerContent({ onClose }: { onClose: () => void }) {
 
           <Separator className="mb-4" />
 
+          {/* Settings Button */}
+          <Pressable
+            onPress={() => handleNavigate("/(protected)/gestionar-cuenta")}
+            className="flex-row items-center justify-between py-3 px-4 rounded-md active:bg-accent mb-4"
+          >
+            <View className="flex-row items-center gap-3">
+              <Monicon
+                name="ic:outline-settings"
+                size={24}
+                color={iconColor}
+              />
+              <Text className="text-base text-foreground font-medium">
+                Configuración
+              </Text>
+            </View>
+          </Pressable>
+
           {/* Theme Toggle */}
           <Pressable
             onPress={toggleTheme}

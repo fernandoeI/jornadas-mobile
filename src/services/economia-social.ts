@@ -1,13 +1,12 @@
 import { convertDateToYYYYMMDD } from "@/src/components/common/dateHelpers";
 import { EconomiaSocialFormData } from "@/src/forms/schemas/EconomiaSocialForm";
-import { isCorsError, sifFetch } from "@/src/utils/sifApi";
+import { isCorsError, sifRequest } from "@/src/utils/sifApi";
 import { ID } from "react-native-appwrite";
 import {
   APPWRITE_CONFIG,
   getAppwriteAccount,
   getAppwriteDatabases,
 } from "./appwrite";
-import { getValidSifAccessToken, refreshSifToken } from "./auth";
 
 const SIF_BASE_URL = "https://sif.tabasco.gob.mx/usuario/api/tandas2";
 const SIF_ADMIN_BASE_URL =
@@ -91,138 +90,16 @@ interface Localidad {
   [key: string]: any;
 }
 
-const getAuthHeaders = async (): Promise<HeadersInit> => {
-  // Usar getValidSifAccessToken para obtener un token válido (refresca si es necesario)
-  const token = await getValidSifAccessToken();
-  if (!token) {
-    throw new Error("No se encontró token de autenticación del SIF");
-  }
-
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-};
-
-const sifRequest = async <T = any>(
-  endpoint: string,
-  options: RequestInit = {},
-  retryOn401 = true
-): Promise<T> => {
-  try {
-    const headers = await getAuthHeaders();
-    // Asegurar que el endpoint tenga la barra inicial
-    const endpointPath = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const url = endpoint.startsWith("http")
-      ? endpoint
-      : `${SIF_BASE_URL}${endpointPath}`;
-
-    const response = await sifFetch(url, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
-    });
-
-    // Si el token expiró (401) y aún no hemos intentado refrescar, hacerlo y reintentar
-    if (!response.ok && response.status === 401 && retryOn401) {
-      console.log("Token expirado, intentando refrescar...");
-      const newToken = await refreshSifToken();
-
-      if (newToken) {
-        // Reintentar la petición con el nuevo token (solo una vez)
-        return sifRequest<T>(endpoint, options, false);
-      } else {
-        throw new Error(
-          "No se pudo refrescar el token. Por favor inicia sesión nuevamente."
-        );
-      }
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-
-      // Log detallado del error para debugging
-      console.error("❌ Error en petición SIF:", {
-        status: response.status,
-        statusText: response.statusText,
-        endpoint: url,
-        errorData,
-      });
-
-      // Extraer mensajes de error más descriptivos
-      let errorMessage = errorData.message || errorData.detail;
-
-      // Si hay errores de validación, formatearlos
-      if (errorData.errors || errorData.error) {
-        const validationErrors = errorData.errors || errorData.error;
-
-        // Si es un objeto con errores por campo
-        if (
-          typeof validationErrors === "object" &&
-          !Array.isArray(validationErrors)
-        ) {
-          const fieldErrors: string[] = [];
-
-          Object.keys(validationErrors).forEach((field) => {
-            const fieldError = validationErrors[field];
-            if (Array.isArray(fieldError)) {
-              fieldErrors.push(`• ${field}: ${fieldError.join(", ")}`);
-            } else if (typeof fieldError === "string") {
-              fieldErrors.push(`• ${field}: ${fieldError}`);
-            } else if (typeof fieldError === "object" && fieldError.message) {
-              fieldErrors.push(`• ${field}: ${fieldError.message}`);
-            }
-          });
-
-          if (fieldErrors.length > 0) {
-            errorMessage = `Errores de validación:\n\n${fieldErrors.join("\n")}`;
-          }
-        } else if (Array.isArray(validationErrors)) {
-          // Si es un array de errores
-          errorMessage = `Errores de validación:\n\n${validationErrors.map((e) => `• ${e}`).join("\n")}`;
-        } else if (typeof validationErrors === "string") {
-          errorMessage = validationErrors;
-        }
-      }
-
-      // Si todavía no hay mensaje, usar uno por defecto
-      if (!errorMessage) {
-        errorMessage = `Error en la petición (${response.status}): ${response.statusText || "Error desconocido"}`;
-      }
-
-      // Crear un error con información adicional
-      const error = new Error(errorMessage);
-      (error as any).status = response.status;
-      (error as any).data = errorData;
-      throw error;
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: unknown) {
-    console.error("Error en petición SIF:", error);
-
-    // Si es un error de CORS, re-lanzar con el mensaje mejorado
-    if (isCorsError(error)) {
-      throw error;
-    }
-
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Error desconocido en la petición al SIF");
-  }
-};
-
 /**
  * Valida si una CURP está registrada en el sistema de tandas
+ * @param token - Token de acceso SIF
+ * @param curp - CURP a validar
  */
 export const precheckCurp = async (
+  token: string,
   curp: string
 ): Promise<CurpPrecheckResponse> => {
-  return sifRequest<CurpPrecheckResponse>("/precheck_curp/", {
+  return sifRequest<CurpPrecheckResponse>(token, "/precheck_curp/", {
     method: "POST",
     body: JSON.stringify({ curp }),
   });
@@ -230,11 +107,14 @@ export const precheckCurp = async (
 
 /**
  * Valida una CURP con RENAPO y CURP Tabasco
+ * @param token - Token de acceso SIF
+ * @param curp - CURP a validar
  */
 export const validateRenapo = async (
+  token: string,
   curp: string
 ): Promise<RenapoValidationResponse> => {
-  return sifRequest<RenapoValidationResponse>("/validate_renapo/", {
+  return sifRequest<RenapoValidationResponse>(token, "/validate_renapo/", {
     method: "POST",
     body: JSON.stringify({ curp }),
   });
@@ -242,11 +122,14 @@ export const validateRenapo = async (
 
 /**
  * Valida si un número de teléfono está registrado
+ * @param token - Token de acceso SIF
+ * @param telefono - Teléfono a validar
  */
 export const precheckTelefono = async (
+  token: string,
   telefono: string
 ): Promise<TelefonoPrecheckResponse> => {
-  return sifRequest<TelefonoPrecheckResponse>("/precheck_telefono/", {
+  return sifRequest<TelefonoPrecheckResponse>(token, "/precheck_telefono/", {
     method: "POST",
     body: JSON.stringify({ num_celular1: telefono }),
   });
@@ -254,10 +137,16 @@ export const precheckTelefono = async (
 
 /**
  * Obtiene la lista de solicitudes de Tanda2 registradas
+ * @param token - Token de acceso SIF
  */
-export const listTanda2Requests = async (): Promise<
-  Tanda2RequestListItem[]
-> => {
+export const listTanda2Requests = async (
+  token: string
+): Promise<Tanda2RequestListItem[]> => {
+  // Validar que el token esté presente
+  if (!token || typeof token !== "string" || token.trim().length === 0) {
+    throw new Error("Token SIF no válido o vacío");
+  }
+
   try {
     const response = await sifRequest<{
       success?: boolean;
@@ -267,7 +156,7 @@ export const listTanda2Requests = async (): Promise<
         results?: Tanda2RequestListItem[];
       };
       results?: Tanda2RequestListItem[];
-    }>("/list_tanda2_requests/", {
+    }>(token, "/list_tanda2_requests/", {
       method: "GET",
     });
 
@@ -306,56 +195,41 @@ export const listTanda2Requests = async (): Promise<
 
     return [];
   } catch (error) {
-    console.error("Error obteniendo lista de solicitudes:", error);
-    return [];
+    // Re-lanzar el error para que el hook pueda manejarlo (invalidar token si es 401)
+    throw error;
   }
 };
 
 /**
  * Obtiene las localidades de un municipio específico
+ * @param token - Token de acceso SIF
+ * @param municipioId - ID del municipio
  */
 export const getLocalidades = async (
+  token: string,
   municipioId: number
 ): Promise<Localidad[]> => {
   try {
-    const headers = await getAuthHeaders();
     const url = `${SIF_ADMIN_BASE_URL}/get_localidades/?municipio_id=${municipioId}`;
-
-    const response = await sifFetch(url, {
-      method: "GET",
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message ||
-          errorData.detail ||
-          `Error al obtener localidades: ${response.status}`
-      );
-    }
-
-    const data = await response.json();
+    const response = await sifRequest<
+      Localidad[] | { results?: Localidad[]; data?: Localidad[] }
+    >(token, url);
 
     // Manejar diferentes formatos de respuesta
-    if (Array.isArray(data)) {
-      return data;
+    if (Array.isArray(response)) {
+      return response;
     }
-    if (data.results && Array.isArray(data.results)) {
-      return data.results;
+    if (response.results && Array.isArray(response.results)) {
+      return response.results;
     }
-    if (data.data && Array.isArray(data.data)) {
-      return data.data;
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
     }
     return [];
   } catch (error: unknown) {
-    console.error("Error obteniendo localidades:", error);
-
-    // Si es un error de CORS, re-lanzar con el mensaje mejorado
     if (isCorsError(error)) {
       throw error;
     }
-
     if (error instanceof Error) {
       throw error;
     }
@@ -365,6 +239,7 @@ export const getLocalidades = async (
 
 /**
  * Guarda la solicitud en Appwrite
+ * Solo se debe llamar después de que el guardado en SIF haya sido exitoso
  */
 const saveToAppwrite = async (
   data: EconomiaSocialFormData,
@@ -373,7 +248,19 @@ const saveToAppwrite = async (
   try {
     const databases = getAppwriteDatabases();
     const account = getAppwriteAccount();
-    const user = await account.get().catch(() => null);
+
+    // Verificar conexión con Appwrite obteniendo el usuario
+    let user;
+    try {
+      user = await account.get();
+    } catch (accountError: any) {
+      // Si no hay sesión activa, continuar con "anonymous"
+      // Esto es normal si el usuario no está autenticado
+      console.warn(
+        "⚠️ No se pudo obtener usuario de Appwrite, usando 'anonymous':",
+        accountError?.message
+      );
+    }
     const userId = user?.$id || "anonymous";
 
     const documentData = {
@@ -439,6 +326,12 @@ const saveToAppwrite = async (
       updatedAt: new Date().toISOString(),
     };
 
+    console.log("📝 Intentando guardar en Appwrite:", {
+      databaseId: APPWRITE_CONFIG.DATABASE_ID,
+      collectionId: APPWRITE_CONFIG.COLLECTIONS.ECONOMIA_SOCIAL,
+      documentDataKeys: Object.keys(documentData),
+    });
+
     const document = await databases.createDocument(
       APPWRITE_CONFIG.DATABASE_ID,
       APPWRITE_CONFIG.COLLECTIONS.ECONOMIA_SOCIAL,
@@ -446,19 +339,70 @@ const saveToAppwrite = async (
       documentData
     );
 
+    console.log(
+      "✅ Documento guardado exitosamente en Appwrite:",
+      document.$id
+    );
     return document;
   } catch (error: any) {
-    console.error("Error guardando en Appwrite:", error);
-    // No lanzar error, solo loguear ya que el guardado principal es en el SIF
-    return null;
+    // Log detallado del error
+    console.error("❌ Error en saveToAppwrite:", {
+      error,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorType: error?.type,
+      errorName: error?.name,
+      errorResponse: error?.response,
+      errorStack: error?.stack,
+      // Información de la configuración
+      databaseId: APPWRITE_CONFIG.DATABASE_ID,
+      collectionId: APPWRITE_CONFIG.COLLECTIONS.ECONOMIA_SOCIAL,
+    });
+
+    // Determinar el tipo de error y proporcionar un mensaje más útil
+    let errorMessage =
+      error?.message || "Error desconocido al guardar en Appwrite";
+
+    if (
+      error?.message?.includes("network") ||
+      error?.message?.includes("Network") ||
+      error?.message?.includes("Failed to fetch")
+    ) {
+      errorMessage =
+        "Error de conexión con Appwrite. Verifica tu conexión a internet y que el servidor de Appwrite esté disponible.";
+    } else if (
+      error?.message?.includes("could not be found") ||
+      error?.code === 404
+    ) {
+      errorMessage = `La colección '${APPWRITE_CONFIG.COLLECTIONS.ECONOMIA_SOCIAL}' no se encontró. Verifica que el ID de la colección sea correcto en Appwrite Console.`;
+    } else if (
+      error?.code === 401 ||
+      error?.message?.includes("Unauthorized")
+    ) {
+      errorMessage =
+        "Error de autenticación con Appwrite. Por favor, inicia sesión nuevamente.";
+    } else if (error?.code === 403 || error?.message?.includes("Forbidden")) {
+      errorMessage =
+        "No tienes permisos para crear documentos en esta colección. Verifica los permisos en Appwrite Console.";
+    }
+
+    const detailedError = new Error(errorMessage);
+    (detailedError as any).originalError = error;
+    (detailedError as any).code = error?.code;
+    (detailedError as any).type = error?.type;
+    throw detailedError;
   }
 };
 
 /**
  * Crea una nueva solicitud de Tanda2
- * Guarda tanto en Appwrite como en el endpoint del SIF
+ * Guarda primero en el endpoint del SIF, y si es exitoso, luego en Appwrite.
+ * Si el SIF falla, NO se guardará en Appwrite.
+ * @param token - Token de acceso SIF
+ * @param data - Datos del formulario
  */
 export const createTanda2Request = async (
+  token: string,
   data: EconomiaSocialFormData
 ): Promise<any> => {
   // Preparar datos para el SIF
@@ -494,8 +438,16 @@ export const createTanda2Request = async (
     servicio_agua: data.servicio_agua,
     servicio_drenaje: data.servicio_drenaje,
     piso: data.piso,
-    ...(data.grupo_indigena && { grupo_indigena: data.grupo_indigena }),
-    ...(data.lengua_indigena && { lengua_indigena: data.lengua_indigena }),
+    // Solo enviar grupo_indigena al SIF si no es "ninguna" (el SIF no acepta "ninguna")
+    ...(data.grupo_indigena &&
+      data.grupo_indigena !== "ninguna" && {
+        grupo_indigena: data.grupo_indigena,
+      }),
+    // Solo enviar lengua_indigena al SIF si no es "no" (el SIF no acepta "no")
+    ...(data.lengua_indigena &&
+      data.lengua_indigena !== "no" && {
+        lengua_indigena: data.lengua_indigena,
+      }),
     ...(data.lenguas_txt && { lenguas_txt: data.lenguas_txt }),
     ...(data.violencia_bool !== undefined && {
       violencia_bool: data.violencia_bool,
@@ -524,14 +476,16 @@ export const createTanda2Request = async (
     ...(data.folio && { folio: data.folio }),
   };
 
-  // Guardar en el endpoint del SIF (prioridad)
+  // PASO 1: Guardar primero en el endpoint del SIF
+  // Si falla aquí, NO se guardará en Appwrite
   let sifResponse: any;
   try {
-    sifResponse = await sifRequest<any>("/", {
+    sifResponse = await sifRequest<any>(token, "/", {
       method: "POST",
       body: JSON.stringify(sifPayload),
     });
   } catch (error: any) {
+    // Si falla en SIF, lanzar error y NO guardar en Appwrite
     console.error("❌ Error guardando solicitud en SIF:", error);
     console.error("📋 Datos completos del error:", {
       message: error?.message,
@@ -596,12 +550,32 @@ export const createTanda2Request = async (
     throw detailedError;
   }
 
-  // Guardar también en Appwrite (no crítico si falla)
+  // PASO 2: Solo si el guardado en SIF fue exitoso, guardar en Appwrite
+  // Si Appwrite falla, lanzar error para que el usuario sepa
   try {
     await saveToAppwrite(data, sifResponse);
-  } catch (error) {
-    console.error("Error guardando backup en Appwrite:", error);
-    // No lanzar error ya que el guardado principal fue exitoso
+  } catch (error: any) {
+    console.error("❌ Error guardando en Appwrite después de guardar en SIF:", {
+      error,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorType: error?.type,
+      errorResponse: error?.response,
+      documentData: {
+        // Log solo las claves para no exponer datos sensibles
+        keys: Object.keys(data),
+        sifResponseKeys: sifResponse ? Object.keys(sifResponse) : null,
+      },
+    });
+
+    // Lanzar error con más detalles para debugging
+    const errorMessage =
+      error?.message || "Error desconocido al guardar en Appwrite";
+    const detailedError = new Error(
+      `El registro se guardó exitosamente en el sistema, pero hubo un error al guardar el respaldo: ${errorMessage}`
+    );
+    (detailedError as any).originalError = error;
+    throw detailedError;
   }
 
   return sifResponse;

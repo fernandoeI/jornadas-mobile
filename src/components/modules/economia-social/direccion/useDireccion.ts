@@ -1,4 +1,4 @@
-import { economiaSocialService } from "@/src/services";
+import { usePrecheckTelefono, useGetLocalidades } from "@/src/hooks";
 import type { Option } from "@rn-primitives/select";
 import { useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { Alert } from "react-native";
@@ -21,6 +21,12 @@ export const useDireccion = ({
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [isLoadingLocalidades, setIsLoadingLocalidades] = useState(false);
   const [isValidatingTelefono, setIsValidatingTelefono] = useState(false);
+
+  // Hooks para validaciones
+  const precheckTelefonoMutation = usePrecheckTelefono();
+  const { data: localidadesData, isLoading: isLoadingLocalidadesQuery } = useGetLocalidades(
+    values.municipio
+  );
 
   const handlePhoneValidationSuccess = useCallback(() => {
     onNext();
@@ -70,9 +76,12 @@ export const useDireccion = ({
 
     setIsValidatingTelefono(true);
     try {
-      const response = await economiaSocialService.precheckTelefono(
-        values.num_celular1!
-      );
+      const response = await new Promise((resolve, reject) => {
+        precheckTelefonoMutation.mutate(values.num_celular1!, {
+          onSuccess: resolve,
+          onError: reject,
+        });
+      });
 
       if (isPhoneRegistered(response)) {
         const errorMessage =
@@ -111,32 +120,15 @@ export const useDireccion = ({
     validatePhoneAndProceed,
   ]);
 
+  // Sincronizar localidades del hook con el estado local
   useEffect(() => {
-    const loadLocalidades = async () => {
-      if (!values.municipio) {
-        setLocalidades([]);
-        return;
-      }
-
-      setIsLoadingLocalidades(true);
-      try {
-        const localidadesData = await economiaSocialService.getLocalidades(
-          values.municipio
-        );
-        setLocalidades(localidadesData);
-      } catch (error: any) {
-        setLocalidades([]);
-        const errorMessage = error?.message || "Error al cargar localidades";
-        if (!errorMessage.includes("CORS")) {
-          Alert.alert("Error", ERROR_MESSAGES.LOCALIDADES_LOAD_ERROR);
-        }
-      } finally {
-        setIsLoadingLocalidades(false);
-      }
-    };
-
-    loadLocalidades();
-  }, [values.municipio]);
+    if (localidadesData) {
+      setLocalidades(localidadesData);
+    } else {
+      setLocalidades([]);
+    }
+    setIsLoadingLocalidades(isLoadingLocalidadesQuery);
+  }, [localidadesData, isLoadingLocalidadesQuery]);
 
   const handleMunicipioChange = useCallback(
     (option: Option) => {

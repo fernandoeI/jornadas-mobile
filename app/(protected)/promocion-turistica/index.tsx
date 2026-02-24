@@ -5,11 +5,15 @@ import { Button } from "@/src/components/ui/button";
 import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
 import { usePromocionTuristicaForm } from "@/src/forms/usePromocionTuristicaForm";
+import { useAuth } from "@/src/providers/AuthProvider";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
+import { useMemo } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   View,
@@ -20,6 +24,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function PromocionTuristicaScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const primaryColor = THEME[colorScheme].primary;
@@ -27,6 +32,18 @@ export default function PromocionTuristicaScreen() {
   const mutedColor = THEME[colorScheme].muted;
   const backgroundColor = THEME[colorScheme].background;
   const opacity = colorScheme === "dark" ? 0.1 : 0.05;
+
+  // Verificar si el usuario tiene el label "promocionturistica"
+  const hasPromocionTuristicaLabel = useMemo(() => {
+    return user?.labels?.some(
+      (label) => label.toLowerCase() === "promocionturistica"
+    );
+  }, [user?.labels]);
+
+  // Redirigir al home si no tiene el label requerido
+  if (!hasPromocionTuristicaLabel) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   const {
     control,
     handleSubmit,
@@ -49,11 +66,51 @@ export default function PromocionTuristicaScreen() {
     getStepIcon,
     goToNextStep,
     goToPreviousStep,
+    validateStep,
+    isLoading,
   } = usePromocionTuristicaForm();
 
   const handleCancel = () => {
-    router.push("/(protected)/(tabs)/home");
+    router.back();
   };
+
+  // Verificar si el paso actual está completo para deshabilitar botón
+  const isCurrentStepComplete = useMemo(() => {
+    // Verificar campos requeridos según el paso
+    switch (step) {
+      case 0: // Información básica
+        const hasTipoAtractivo = values.tipoAtractivo && values.tipoAtractivo.length > 0;
+        const hasOtroTipo = !values.tipoAtractivo?.includes("otro") || !!values.otroTipoAtractivo;
+        const hasQuienPromueve = !!values.quienPromueve;
+        const hasOtroQuienPromueve = values.quienPromueve !== "otro" || !!values.otroQuienPromueve;
+        const hasServicios = values.serviciosExistentes && values.serviciosExistentes.length > 0;
+        const hasOtrosServicios = !values.serviciosExistentes?.includes("otros") || !!values.otrosServicios;
+        
+        return !!(
+          values.nombreAtractivo &&
+          hasTipoAtractivo &&
+          hasOtroTipo &&
+          hasQuienPromueve &&
+          hasOtroQuienPromueve &&
+          values.nivelConocimiento &&
+          values.tieneSenaletica &&
+          values.enPlataformaDigital &&
+          hasServicios &&
+          hasOtrosServicios
+        );
+      case 1: // Observación técnica
+        return !!(
+          values.condicionesAcceso &&
+          values.estadoConservacion &&
+          values.potencialPromocional &&
+          values.observacionesTecnicas &&
+          values.geolocalizacion?.trim() &&
+          values.observacionesAdicionales
+        );
+      default:
+        return true;
+    }
+  }, [step, values]);
 
   return (
     <KeyboardAvoidingView
@@ -250,7 +307,11 @@ export default function PromocionTuristicaScreen() {
                 >
                   <Text>Cancelar</Text>
                 </Button>
-                <Button onPress={goToNextStep} className="flex-1">
+                <Button
+                  onPress={goToNextStep}
+                  className="flex-1"
+                  disabled={!isCurrentStepComplete}
+                >
                   <Text>Siguiente</Text>
                 </Button>
               </>
@@ -270,6 +331,23 @@ export default function PromocionTuristicaScreen() {
             )}
           </View>
         )}
+
+        {/* Loading overlay durante el guardado */}
+        <Modal
+          visible={isLoading}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+        >
+          <View className="flex-1 justify-center items-center bg-black/50">
+            <View className="items-center">
+              <ActivityIndicator size="large" color={primaryColor} />
+              <Text className="mt-4 text-[15px] font-medium text-white">
+                Guardando...
+              </Text>
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );

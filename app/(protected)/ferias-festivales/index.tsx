@@ -11,16 +11,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/src/components/ui/select";
+import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
 import { FeriasFestivalesFormData } from "@/src/forms/schemas/FeriasFestivalesForm";
+import { feriasFestivalesService } from "@/src/services";
+import { useTheme } from "@/src/providers/ThemeProvider";
 import { openCameraDirectly, pickImagesForWeb } from "@/src/utils/imagePicker";
 import { getLocationWithFallback } from "@/src/utils/location";
 import { Monicon } from "@monicon/native";
 import type { Option, TriggerRef } from "@rn-primitives/select";
+import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React, { useRef, useState } from "react";
-import { Platform, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Yup from "yup";
 
@@ -97,7 +108,9 @@ const opcionesSiNo = ["si", "no"];
 
 export default function FeriasFestivalesScreen() {
   const router = useRouter();
+  const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const primaryColor = THEME[colorScheme].primary;
   const [step, setStep] = useState(0);
   const [fotos, setFotos] = useState<{ uri: string; descripcion: string }[]>(
     []
@@ -105,6 +118,27 @@ export default function FeriasFestivalesScreen() {
   const origenRef = useRef<TriggerRef>(null);
   const quienOrganizaRef = useRef<TriggerRef>(null);
   const potencialCalendarioRef = useRef<TriggerRef>(null);
+
+  const mutation = useMutation({
+    mutationFn: (data: FeriasFestivalesFormData) =>
+      feriasFestivalesService.create(data),
+    onSuccess: () => {
+      Alert.alert("¡Éxito!", "Formulario enviado correctamente", [
+        {
+          text: "OK",
+          onPress: () => router.push("/(protected)/(tabs)/home"),
+        },
+      ]);
+    },
+    onError: (error: any) => {
+      console.error("Error enviando formulario:", error);
+      Alert.alert(
+        "Error",
+        error?.message ||
+          "No se pudo enviar el formulario. Por favor intenta nuevamente."
+      );
+    },
+  });
 
   const getStepTitle = () => {
     switch (step) {
@@ -140,10 +174,11 @@ export default function FeriasFestivalesScreen() {
   };
 
   const handleSubmit = (values: FeriasFestivalesFormData) => {
-    console.log("Formulario Ferias y Festivales:", values);
-    console.log("Fotos:", fotos);
-    alert("¡Formulario enviado exitosamente!");
-    router.push("/(protected)/(tabs)/home");
+    const formData: FeriasFestivalesFormData = {
+      ...values,
+      fotografias: fotos,
+    };
+    mutation.mutate(formData);
   };
 
   const pickImage = async () => {
@@ -1122,6 +1157,23 @@ export default function FeriasFestivalesScreen() {
           </Formik>
         </View>
       </ScrollView>
+
+      {/* Loading overlay durante el guardado */}
+      <Modal
+        visible={mutation.isPending}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="items-center">
+            <ActivityIndicator size="large" color={primaryColor} />
+            <Text className="mt-4 text-[15px] font-medium text-white">
+              Guardando...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

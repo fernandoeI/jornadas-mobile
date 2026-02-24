@@ -36,6 +36,7 @@ export const usePromocionTuristicaForm = () => {
     handleSubmit,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = useForm<PromocionTuristicaFormData>({
     resolver: yupResolver(
@@ -136,10 +137,15 @@ export const usePromocionTuristicaForm = () => {
   const handleGetLocation = async () => {
     try {
       const location = await getLocationWithFallback();
-      setValue("geolocalizacion", location);
+      setValue("geolocalizacion", location, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      // Forzar validación inmediata del campo
+      await trigger("geolocalizacion");
     } catch (error) {
-      console.error("Error al obtener ubicación:", error);
-      Alert.alert("Error", "No se pudo obtener la ubicación");
+      // El error ya se muestra en getLocationWithFallback
     }
   };
 
@@ -186,7 +192,71 @@ export const usePromocionTuristicaForm = () => {
     }
   };
 
-  const goToNextStep = () => {
+  // Campos obligatorios por paso
+  const getRequiredFieldsByStep = (
+    currentStep: number
+  ): (keyof PromocionTuristicaFormData)[] => {
+    switch (currentStep) {
+      case 0: // Información básica
+        return [
+          "nombreAtractivo",
+          "tipoAtractivo",
+          "quienPromueve",
+          "nivelConocimiento",
+          "tieneSenaletica",
+          "enPlataformaDigital",
+          "serviciosExistentes",
+        ];
+      case 1: // Observación técnica
+        return [
+          "condicionesAcceso",
+          "estadoConservacion",
+          "potencialPromocional",
+          "observacionesTecnicas",
+          "geolocalizacion",
+          "observacionesAdicionales",
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Validar campos de un paso específico
+  const validateStep = async (stepToValidate: number): Promise<boolean> => {
+    const fieldsToValidate = getRequiredFieldsByStep(stepToValidate);
+    if (fieldsToValidate.length === 0) return true;
+    
+    // Validar campos condicionales
+    if (stepToValidate === 0) {
+      // Validar otroTipoAtractivo si "otro" está en tipoAtractivo
+      if (values.tipoAtractivo?.includes("otro")) {
+        fieldsToValidate.push("otroTipoAtractivo");
+      }
+      // Validar otroQuienPromueve si quienPromueve es "otro"
+      if (values.quienPromueve === "otro") {
+        fieldsToValidate.push("otroQuienPromueve");
+      }
+      // Validar otrosServicios si "otros" está en serviciosExistentes
+      if (values.serviciosExistentes?.includes("otros")) {
+        fieldsToValidate.push("otrosServicios");
+      }
+    }
+    
+    const isValid = await trigger(fieldsToValidate);
+    return isValid;
+  };
+
+  const goToNextStep = async () => {
+    // Validar el paso actual antes de avanzar
+    const isValid = await validateStep(step);
+    if (!isValid) {
+      Alert.alert(
+        "Campos incompletos",
+        "Por favor completa todos los campos obligatorios antes de continuar."
+      );
+      return;
+    }
+
     if (step < 1) {
       setStep(step + 1);
     }
@@ -202,6 +272,7 @@ export const usePromocionTuristicaForm = () => {
     control,
     handleSubmit: handleSubmit(onSubmit),
     setValue,
+    trigger,
     values,
     errors,
     step,
@@ -221,6 +292,7 @@ export const usePromocionTuristicaForm = () => {
     getStepIcon,
     goToNextStep,
     goToPreviousStep,
+    validateStep,
     isLoading: mutation.isPending,
   };
 };

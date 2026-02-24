@@ -25,6 +25,12 @@ import type { Control, FieldErrors } from "react-hook-form";
 import { Controller } from "react-hook-form";
 import { View } from "react-native";
 
+// Función helper para convertir opciones a formato oración (solo primera letra mayúscula)
+const formatToSentence = (text: string): string => {
+  const withSpaces = text.replace(/-/g, " ");
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1).toLowerCase();
+};
+
 interface IAdvanceInformation {
   control: Control<PromocionTuristicaFormData, any, any>;
   errors: FieldErrors<PromocionTuristicaFormData>;
@@ -90,7 +96,7 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               value={
                 value
                   ? {
-                      label: value,
+                      label: formatToSentence(value),
                       value: value,
                     }
                   : undefined
@@ -116,15 +122,18 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               </SelectTrigger>
               <SelectContent insets={contentInsets}>
                 <SelectGroup>
-                  {CONDICIONES_ACCESO.map((condicion) => (
+                  {CONDICIONES_ACCESO.map((condicion) => {
+                    const labelFormatted = formatToSentence(condicion);
+                    return (
                     <SelectItem
                       key={condicion}
-                      label={condicion}
+                        label={labelFormatted}
                       value={condicion}
                     >
-                      {condicion}
+                        {labelFormatted}
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -153,7 +162,7 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               value={
                 value
                   ? {
-                      label: value,
+                      label: formatToSentence(value),
                       value: value,
                     }
                   : undefined
@@ -179,11 +188,18 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               </SelectTrigger>
               <SelectContent insets={contentInsets}>
                 <SelectGroup>
-                  {ESTADOS_CONSERVACION.map((estado) => (
-                    <SelectItem key={estado} label={estado} value={estado}>
-                      {estado}
+                  {ESTADOS_CONSERVACION.map((estado) => {
+                    const labelFormatted = formatToSentence(estado);
+                    return (
+                      <SelectItem
+                        key={estado}
+                        label={labelFormatted}
+                        value={estado}
+                      >
+                        {labelFormatted}
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -212,7 +228,7 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               value={
                 value
                   ? {
-                      label: value,
+                      label: formatToSentence(value),
                       value: value,
                     }
                   : undefined
@@ -238,15 +254,18 @@ export const AdvanceInformation: React.FC<IAdvanceInformation> = ({
               </SelectTrigger>
               <SelectContent insets={contentInsets}>
                 <SelectGroup>
-                  {POTENCIALES_PROMOCIONAL.map((potencial) => (
+                  {POTENCIALES_PROMOCIONAL.map((potencial) => {
+                    const labelFormatted = formatToSentence(potencial);
+                    return (
                     <SelectItem
                       key={potencial}
-                      label={potencial}
+                        label={labelFormatted}
                       value={potencial}
                     >
-                      {potencial}
+                        {labelFormatted}
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectGroup>
               </SelectContent>
             </Select>

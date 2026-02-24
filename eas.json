@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 16.14.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APPWRITE_ENDPOINT": "https://jornadasturismo.tabasco.gob.mx/v1",
+        "EXPO_PUBLIC_APPWRITE_PROJECT_ID": "68cde1400002c52eb08d",
+        "EXPO_PUBLIC_OCR_SPACE_API_KEY": "G888ZCWSKY1BX"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APPWRITE_ENDPOINT": "https://jornadasturismo.tabasco.gob.mx/v1",
+        "EXPO_PUBLIC_APPWRITE_PROJECT_ID": "68cde1400002c52eb08d",
+        "EXPO_PUBLIC_OCR_SPACE_API_KEY": "G888ZCWSKY1BX"
+      },
+      "channel": "preview"
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APPWRITE_ENDPOINT": "https://jornadasturismo.tabasco.gob.mx/v1",
+        "EXPO_PUBLIC_APPWRITE_PROJECT_ID": "68cde1400002c52eb08d",
+        "EXPO_PUBLIC_OCR_SPACE_API_KEY": "G888ZCWSKY1BX"
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

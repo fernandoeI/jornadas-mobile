@@ -8,10 +8,17 @@ import {
 } from "./appwrite";
 import { filesService } from "./files";
 
-const getCurrentUserId = async (): Promise<string> => {
+const getCurrentUser = async () => {
   const account = getAppwriteAccount();
   const user = await account.get();
-  return user.$id;
+  if (!user || !user.$id) {
+    throw new Error("No se pudo obtener el usuario actual");
+  }
+  return {
+    userId: user.$id,
+    userName: user.name || "",
+    userEmail: user.email || "",
+  };
 };
 
 const buildFileFromFoto = async (
@@ -21,15 +28,26 @@ const buildFileFromFoto = async (
   const fallbackType = "image/jpeg";
   const fileName = `promocion-turistica-${Date.now()}-${index}.jpg`;
 
-  if (!foto.uri) {
-    throw new Error("La fotografía no contiene URI válida");
+  if (!foto || !foto.uri || foto.uri.trim() === "") {
+    throw new Error(`La fotografía #${index + 1} no contiene URI válida`);
   }
 
   if (Platform.OS === "web") {
+    try {
     const response = await fetch(foto.uri);
+      if (!response.ok) {
+        throw new Error(
+          `Error al obtener la imagen #${index + 1}: ${response.status} ${response.statusText}`
+        );
+      }
     const blob = await response.blob();
     const type = blob.type || fallbackType;
     return new File([blob], fileName, { type });
+    } catch (fetchError: any) {
+      throw new Error(
+        `Error al procesar la fotografía #${index + 1}: ${fetchError?.message || "Error desconocido"}`
+      );
+    }
   }
 
   return {
@@ -46,6 +64,19 @@ const uploadFotosToStorage = async (
     return [];
   }
 
+  // Validar que todas las fotos tengan URI antes de intentar subirlas
+  const fotosInvalidas = fotografias
+    .map((foto, index) =>
+      !foto || !foto.uri || foto.uri.trim() === "" ? index + 1 : null
+    )
+    .filter((index) => index !== null);
+
+  if (fotosInvalidas.length > 0) {
+    throw new Error(
+      `Las siguientes fotografías no tienen URI válida: ${fotosInvalidas.join(", ")}`
+    );
+  }
+
   const uploads = await Promise.all(
     fotografias.map(async (foto, index) => {
       try {
@@ -59,9 +90,11 @@ const uploadFotosToStorage = async (
           mimetype: uploaded.mimetype,
           size: uploaded.size,
         });
-      } catch (error) {
-        console.error("Error subiendo fotografía:", error);
-        throw new Error("No se pudo subir una de las fotografías");
+      } catch (error: any) {
+        const errorMessage = error?.message || "Error desconocido";
+        throw new Error(
+          `No se pudo subir la fotografía #${index + 1}: ${errorMessage}`
+        );
       }
     })
   );
@@ -72,7 +105,9 @@ const uploadFotosToStorage = async (
 const mapFormDataToDocument = (
   data: PromocionTuristicaFormData,
   userId: string,
-  fotografias: string[]
+  fotografias: string[],
+  registradoPor: string,
+  registradoPorEmail: string
 ) => {
   const timestamp = new Date().toISOString();
 
@@ -99,6 +134,8 @@ const mapFormDataToDocument = (
     fotografias,
     observaciones_adicionales: data.observacionesAdicionales,
     userId,
+    registradoPor,
+    registradoPorEmail,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -107,9 +144,15 @@ const mapFormDataToDocument = (
 const create = async (data: PromocionTuristicaFormData): Promise<any> => {
   try {
     const databases = getAppwriteDatabases();
-    const userId = await getCurrentUserId();
+    const { userId, userName, userEmail } = await getCurrentUser();
     const fotografias = await uploadFotosToStorage(data.fotografias);
-    const documentData = mapFormDataToDocument(data, userId, fotografias);
+    const documentData = mapFormDataToDocument(
+      data,
+      userId,
+      fotografias,
+      userName,
+      userEmail
+    );
 
     const document = await databases.createDocument(
       APPWRITE_CONFIG.DATABASE_ID,
@@ -120,7 +163,6 @@ const create = async (data: PromocionTuristicaFormData): Promise<any> => {
 
     return document;
   } catch (error: any) {
-    console.error("Error creating Promoción Turística document:", error);
     throw new Error(
       error?.message || "Error al crear el documento de Promoción Turística"
     );

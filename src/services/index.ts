@@ -1,7 +1,11 @@
 export { apoyoNegocioService } from "./apoyo-negocio";
 export { authService } from "./auth";
+export { cocinerasTradicionalesService } from "./cocineras-tradicionales";
 export { desarrolloComercialService } from "./desarrollo-comercial";
+export { desarrolloTuristicoService } from "./desarrollo-turistico";
 export { economiaSocialService } from "./economia-social";
+export { feriasFestivalesService } from "./ferias-festivales";
 export { filesService } from "./files";
+export { impulsoInversionesService } from "./impulso-inversiones";
 export { jornadasService } from "./jornadas";
 export { promocionTuristicaService } from "./promocion-turistica";

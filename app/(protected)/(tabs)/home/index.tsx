@@ -1,19 +1,28 @@
 import { HomeHeader, MenuList } from "@/src/components/modules/home";
 import { THEME } from "@/src/components/ui/lib/theme";
-import { HOME_MENU_ITEMS } from "@/src/constants/home";
+import { getHomeMenuItems } from "@/src/constants/home";
 import { useHome } from "@/src/hooks/useHome";
+import { useAuth } from "@/src/providers/AuthProvider";
 import { useTheme } from "@/src/providers/ThemeProvider";
+import { useMemo } from "react";
 import { Dimensions, ScrollView, View } from "react-native";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { handleLogout, handleNavigate } = useHome();
+  const { user } = useAuth();
   const { colorScheme } = useTheme();
   const primaryColor = THEME[colorScheme].primary;
   const secondaryColor = THEME[colorScheme].secondary;
   const mutedColor = THEME[colorScheme].muted;
   const opacity = colorScheme === "dark" ? 0.1 : 0.05;
+
+  // Filtrar items del menú según los labels del usuario
+  const menuItems = useMemo(
+    () => getHomeMenuItems(user?.labels),
+    [user?.labels]
+  );
 
   return (
     <View className="flex-1 bg-background" style={{ position: "relative" }}>
@@ -121,7 +130,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         style={{ zIndex: 1 }}
       >
-        <MenuList items={HOME_MENU_ITEMS} onItemPress={handleNavigate} />
+        <MenuList items={menuItems} onItemPress={handleNavigate} />
       </ScrollView>
     </View>
   );

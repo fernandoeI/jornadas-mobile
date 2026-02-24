@@ -38,6 +38,8 @@ export interface JornadaResponse {
   telefono: string;
   correo?: string;
   ineImageUrl?: string;
+  registradoPor?: string;
+  registradoPorEmail?: string;
   createdAt: string;
   updatedAt: string;
 }

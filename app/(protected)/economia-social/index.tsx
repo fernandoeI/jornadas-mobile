@@ -10,12 +10,15 @@ import { Button } from "@/src/components/ui/button";
 import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
 import { useEconomiaSocialForm } from "@/src/forms/useEconomiaSocialForm";
+import { useAuth } from "@/src/providers/AuthProvider";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import { useRouter } from "expo-router";
-import { useRef } from "react";
+import { Redirect, useRouter } from "expo-router";
+import { useEffect, useMemo, useRef } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   View,
@@ -26,6 +29,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function EconomiaSocialScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const primaryColor = THEME[colorScheme].primary;
@@ -33,6 +37,18 @@ export default function EconomiaSocialScreen() {
   const mutedColor = THEME[colorScheme].muted;
   const backgroundColor = THEME[colorScheme].background;
   const opacity = colorScheme === "dark" ? 0.1 : 0.05;
+
+  // Verificar si el usuario tiene el label "economiasocial"
+  const hasEconomiaSocialLabel = useMemo(() => {
+    return user?.labels?.some(
+      (label) => label.toLowerCase() === "economiasocial"
+    );
+  }, [user?.labels]);
+
+  // Redirigir al home si no tiene el label requerido
+  if (!hasEconomiaSocialLabel) {
+    return <Redirect href="/(tabs)/home" />;
+  }
   const {
     control,
     handleSubmit,
@@ -62,6 +78,8 @@ export default function EconomiaSocialScreen() {
     getStepIcon,
     goToNextStep,
     goToPreviousStep,
+    validateStep,
+    isLoading,
     showSuccessModal,
     folio,
     handleCloseModal,
@@ -69,7 +87,7 @@ export default function EconomiaSocialScreen() {
   } = useEconomiaSocialForm();
 
   const handleCancel = () => {
-    router.push("/(protected)/(tabs)/home");
+    router.back();
   };
 
   // Ref para acceder a la función de validación del componente Direccion
@@ -85,6 +103,56 @@ export default function EconomiaSocialScreen() {
       await goToNextStep();
     }
   };
+
+  // Verificar si el paso actual está completo para deshabilitar botón
+  const isCurrentStepComplete = useMemo(() => {
+    // Verificar campos requeridos según el paso
+    switch (step) {
+      case 0: // Datos del solicitante
+        return !!(
+          values.curp_txt &&
+          values.nombre &&
+          values.apellido1 &&
+          values.fecha_nacimiento &&
+          values.entidad_nacimiento &&
+          values.estado_civil &&
+          values.correo
+        );
+      case 1: // Dirección
+        return !!(
+          values.municipio &&
+          values.localidad &&
+          values.asentammiento_tipo &&
+          values.asentammiento_nombre &&
+          values.vialidad_tipo &&
+          values.vialidad_nombre &&
+          values.num_celular1 &&
+          values.codigo_postal &&
+          values.numero_ext
+        );
+      case 2: // Información social
+        return !!(
+          values.fuente_ingreso !== undefined &&
+          values.rfc_boolean !== undefined &&
+          values.servicio_electricidad !== undefined &&
+          values.servicio_agua !== undefined &&
+          values.servicio_drenaje !== undefined &&
+          values.piso !== undefined
+        );
+      case 3: // Datos del emprendimiento
+        return !!(
+          values.monto &&
+          values.negocio_ubicacion &&
+          values.beneficio_tanda &&
+          values.negocio_participacion !== undefined &&
+          values.negocio_cooperativa !== undefined &&
+          values.negocio_marca !== undefined &&
+          values.negocio_marca_registrada !== undefined
+        );
+      default:
+        return true;
+    }
+  }, [step, values]);
 
   return (
     <KeyboardAvoidingView
@@ -315,7 +383,11 @@ export default function EconomiaSocialScreen() {
                 >
                   <Text>Cancelar</Text>
                 </Button>
-                <Button onPress={handleNextWithValidation} className="flex-1">
+                <Button
+                  onPress={handleNextWithValidation}
+                  className="flex-1"
+                  disabled={!isCurrentStepComplete}
+                >
                   <Text>Siguiente</Text>
                 </Button>
               </>
@@ -341,13 +413,34 @@ export default function EconomiaSocialScreen() {
                 >
                   <Text>Regresar</Text>
                 </Button>
-                <Button onPress={handleNextWithValidation} className="flex-1">
+                <Button
+                  onPress={handleNextWithValidation}
+                  className="flex-1"
+                  disabled={!isCurrentStepComplete}
+                >
                   <Text>Siguiente</Text>
                 </Button>
               </>
             )}
           </View>
         )}
+
+        {/* Loading overlay durante el guardado */}
+        <Modal
+          visible={isLoading}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+        >
+          <View className="flex-1 justify-center items-center bg-black/50">
+            <View className="items-center">
+              <ActivityIndicator size="large" color={primaryColor} />
+              <Text className="mt-4 text-[15px] font-medium text-white">
+                Guardando...
+              </Text>
+            </View>
+          </View>
+        </Modal>
 
         {/* Modal de éxito */}
         <SuccessModal

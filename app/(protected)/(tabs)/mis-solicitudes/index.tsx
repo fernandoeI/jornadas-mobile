@@ -1,9 +1,10 @@
 import { Button } from "@/src/components/ui/button";
 import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
+import { useGetJornadasDelDia } from "@/src/hooks";
+import { useAuth } from "@/src/providers/AuthProvider";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import { economiaSocialService } from "@/src/services/economia-social";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function MisSolicitudesScreen() {
+  const { user } = useAuth();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const primaryColor = THEME[colorScheme].primary;
@@ -29,20 +31,26 @@ export default function MisSolicitudesScreen() {
   const mutedForegroundColor = THEME[colorScheme].mutedForeground;
   const opacity = colorScheme === "dark" ? 0.1 : 0.05;
 
+  // Verificar si el usuario tiene los labels "secretaria" o "titular"
+  const isSecretariaOrTitular = useMemo(() => {
+    return user?.labels?.some(
+      (label) =>
+        label.toLowerCase() === "secretaria" ||
+        label.toLowerCase() === "titular"
+    );
+  }, [user?.labels]);
+
+  // Si es secretaria o titular, obtener todas las jornadas del día. Si no, solo las del usuario.
   const {
-    data: solicitudesData,
+    data: jornadasData,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useQuery({
-    queryKey: ["tanda2-requests"],
-    queryFn: () => economiaSocialService.listTanda2Requests(),
-    retry: 1,
-  });
+  } = useGetJornadasDelDia(!isSecretariaOrTitular);
 
-  // Asegurar que solicitudes siempre sea un array
-  const solicitudes = Array.isArray(solicitudesData) ? solicitudesData : [];
+  // Asegurar que jornadas siempre sea un array
+  const jornadas = Array.isArray(jornadasData) ? jornadasData : [];
 
   return (
     <View className="flex-1 bg-background" style={{ position: "relative" }}>
@@ -92,11 +100,38 @@ export default function MisSolicitudesScreen() {
             Mis Solicitudes
           </Text>
           <Text
-            className="text-md text-center"
+            className="text-md text-center mb-3"
             style={{ color: mutedForegroundColor }}
           >
-            Listado de solicitudes de economía social registradas
+            {isSecretariaOrTitular
+              ? "Todos los registros de jornadas"
+              : "Mis registros de jornadas"}
           </Text>
+          {/* Contador de registros */}
+          {!isLoading && (
+            <View
+              className="px-4 py-2 rounded-full mt-2"
+              style={{
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? `${primaryColor}30`
+                    : `${primaryColor}15`,
+                borderWidth: 1,
+                borderColor: primaryColor,
+              }}
+            >
+              <Text className="text-base font-semibold text-white">
+                {jornadas.length} registro{jornadas.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          )}
+          {isLoading && (
+            <View className="mt-2">
+              <Text className="text-sm" style={{ color: mutedForegroundColor }}>
+                Cargando...
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -119,13 +154,13 @@ export default function MisSolicitudesScreen() {
                 className="text-base mt-4"
                 style={{ color: mutedForegroundColor }}
               >
-                Cargando solicitudes...
+                Cargando registros...
               </Text>
             </View>
           ) : error ? (
             <View className="items-center justify-center py-12">
               <Text className="text-lg mb-4" style={{ color: foregroundColor }}>
-                Error al cargar las solicitudes
+                Error al cargar los registros
               </Text>
               <Text
                 className="text-base text-center mb-6"
@@ -133,22 +168,24 @@ export default function MisSolicitudesScreen() {
               >
                 {error instanceof Error
                   ? error.message
-                  : "No se pudieron cargar las solicitudes"}
+                  : "No se pudieron cargar los registros"}
               </Text>
               <Button onPress={() => refetch()}>
                 <Text>Reintentar</Text>
               </Button>
             </View>
-          ) : !Array.isArray(solicitudes) || solicitudes.length === 0 ? (
+          ) : !Array.isArray(jornadas) || jornadas.length === 0 ? (
             <View className="items-center justify-center py-12">
               <Text className="text-lg mb-2" style={{ color: foregroundColor }}>
-                No hay solicitudes registradas
+                No hay registros
               </Text>
               <Text
                 className="text-base text-center"
                 style={{ color: mutedForegroundColor }}
               >
-                Aún no se han registrado solicitudes de economía social.
+                {isSecretariaOrTitular
+                  ? "Aún no se han registrado jornadas."
+                  : "Aún no has registrado jornadas."}
               </Text>
             </View>
           ) : (
@@ -172,21 +209,7 @@ export default function MisSolicitudesScreen() {
                   <View
                     className="p-3 border-r"
                     style={{
-                      flex: 1.5,
-                      borderRightColor: borderColor,
-                    }}
-                  >
-                    <Text
-                      className="text-sm font-semibold"
-                      style={{ color: primaryForegroundColor }}
-                    >
-                      Folio
-                    </Text>
-                  </View>
-                  <View
-                    className="p-3 border-r"
-                    style={{
-                      flex: 1.5,
+                      flex: 1.2,
                       borderRightColor: borderColor,
                     }}
                   >
@@ -200,7 +223,7 @@ export default function MisSolicitudesScreen() {
                   <View
                     className="p-3 border-r"
                     style={{
-                      flex: 1.5,
+                      flex: 1.2,
                       borderRightColor: borderColor,
                     }}
                   >
@@ -212,9 +235,10 @@ export default function MisSolicitudesScreen() {
                     </Text>
                   </View>
                   <View
-                    className="p-3"
+                    className="p-3 border-r"
                     style={{
-                      flex: 1.5,
+                      flex: 1.2,
+                      borderRightColor: borderColor,
                     }}
                   >
                     <Text
@@ -224,19 +248,32 @@ export default function MisSolicitudesScreen() {
                       Segundo apellido
                     </Text>
                   </View>
+                  <View
+                    className="p-3"
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+                    <Text
+                      className="text-sm font-semibold"
+                      style={{ color: primaryForegroundColor }}
+                    >
+                      CURP
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Filas de datos */}
-                {Array.isArray(solicitudes) &&
-                  solicitudes.map((solicitud, index) => (
+                {Array.isArray(jornadas) &&
+                  jornadas.map((jornada, index) => (
                     <View
-                      key={solicitud.id || index}
+                      key={jornada.id || index}
                       className={`flex-row ${
-                        index < solicitudes.length - 1 ? "border-b" : ""
+                        index < jornadas.length - 1 ? "border-b" : ""
                       }`}
                       style={{
                         borderBottomColor:
-                          index < solicitudes.length - 1
+                          index < jornadas.length - 1
                             ? borderColor
                             : "transparent",
                       }}
@@ -244,7 +281,7 @@ export default function MisSolicitudesScreen() {
                       <View
                         className="p-3 border-r"
                         style={{
-                          flex: 1.5,
+                          flex: 1.2,
                           borderRightColor: borderColor,
                         }}
                       >
@@ -252,13 +289,13 @@ export default function MisSolicitudesScreen() {
                           className="text-sm"
                           style={{ color: foregroundColor }}
                         >
-                          {solicitud.folio || "N/A"}
+                          {jornada.nombreSolicitante || "N/A"}
                         </Text>
                       </View>
                       <View
                         className="p-3 border-r"
                         style={{
-                          flex: 1.5,
+                          flex: 1.2,
                           borderRightColor: borderColor,
                         }}
                       >
@@ -266,13 +303,13 @@ export default function MisSolicitudesScreen() {
                           className="text-sm"
                           style={{ color: foregroundColor }}
                         >
-                          {solicitud.nombre || "N/A"}
+                          {jornada.primerApellido || "N/A"}
                         </Text>
                       </View>
                       <View
                         className="p-3 border-r"
                         style={{
-                          flex: 1.5,
+                          flex: 1.2,
                           borderRightColor: borderColor,
                         }}
                       >
@@ -280,35 +317,24 @@ export default function MisSolicitudesScreen() {
                           className="text-sm"
                           style={{ color: foregroundColor }}
                         >
-                          {solicitud.apellido1 || "N/A"}
+                          {jornada.segundoApellido || "-"}
                         </Text>
                       </View>
                       <View
                         className="p-3"
                         style={{
-                          flex: 1.5,
+                          flex: 1,
                         }}
                       >
                         <Text
                           className="text-sm"
                           style={{ color: foregroundColor }}
                         >
-                          {solicitud.apellido2 || "-"}
+                          {jornada.curp || "N/A"}
                         </Text>
                       </View>
                     </View>
                   ))}
-              </View>
-
-              {/* Información adicional */}
-              <View className="items-center">
-                <Text
-                  className="text-sm"
-                  style={{ color: mutedForegroundColor }}
-                >
-                  Total de solicitudes:{" "}
-                  {Array.isArray(solicitudes) ? solicitudes.length : 0}
-                </Text>
               </View>
             </View>
           )}

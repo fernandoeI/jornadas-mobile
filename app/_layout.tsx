@@ -1,4 +1,5 @@
 import "@/global.css";
+import { DeepLinkHandler } from "@/src/components/common/DeepLinkHandler";
 import { NAV_THEME } from "@/src/components/ui/lib/theme";
 import { AuthProvider } from "@/src/providers/AuthProvider";
 import {
@@ -10,6 +11,7 @@ import { PortalHost } from "@rn-primitives/portal";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,30 +32,33 @@ function NavigationThemeProvider({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <KeyboardProvider>
-        <CustomThemeProvider>
-          <AuthProvider>
-            <NavigationThemeProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  animation: "slide_from_right",
-                }}
-              >
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="splash" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="(protected)"
-                  options={{ headerShown: false }}
-                />
-              </Stack>
-            </NavigationThemeProvider>
-          </AuthProvider>
-        </CustomThemeProvider>
-        <PortalHost />
-      </KeyboardProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <KeyboardProvider>
+          <CustomThemeProvider>
+            <AuthProvider>
+              <NavigationThemeProvider>
+                <DeepLinkHandler />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                >
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="splash" options={{ headerShown: false }} />
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="(protected)"
+                    options={{ headerShown: false }}
+                  />
+                </Stack>
+              </NavigationThemeProvider>
+            </AuthProvider>
+          </CustomThemeProvider>
+          <PortalHost />
+        </KeyboardProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

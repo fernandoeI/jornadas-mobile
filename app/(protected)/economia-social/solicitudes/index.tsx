@@ -2,10 +2,11 @@ import { FormHeader } from "@/src/components/common";
 import { Button } from "@/src/components/ui/button";
 import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
+import { useAuth } from "@/src/providers/AuthProvider";
 import { useTheme } from "@/src/providers/ThemeProvider";
-import { economiaSocialService } from "@/src/services/economia-social";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useListTanda2Requests } from "@/src/hooks";
+import { Redirect, useRouter } from "expo-router";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,6 +21,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function SolicitudesEconomiaSocialScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const primaryColor = THEME[colorScheme].primary;
@@ -31,17 +33,25 @@ export default function SolicitudesEconomiaSocialScreen() {
   const mutedForegroundColor = THEME[colorScheme].mutedForeground;
   const opacity = colorScheme === "dark" ? 0.1 : 0.05;
 
+  // Verificar si el usuario tiene el label "economiasocial"
+  const hasEconomiaSocialLabel = useMemo(() => {
+    return user?.labels?.some(
+      (label) => label.toLowerCase() === "economiasocial"
+    );
+  }, [user?.labels]);
+
+  // Redirigir al home si no tiene el label requerido
+  if (!hasEconomiaSocialLabel) {
+    return <Redirect href="/(tabs)/home" />;
+  }
+
   const {
     data: solicitudes,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useQuery({
-    queryKey: ["tanda2-requests"],
-    queryFn: () => economiaSocialService.listTanda2Requests(),
-    retry: 1,
-  });
+  } = useListTanda2Requests();
 
   const handleGoBack = () => {
     router.push("/(protected)/(tabs)/home");

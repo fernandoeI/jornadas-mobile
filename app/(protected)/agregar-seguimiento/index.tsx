@@ -1,512 +1,387 @@
 import { FormHeader } from "@/src/components/common";
 import {
-  CompleteFormStep1,
-  CompleteFormStep2,
-  INEForm,
-  INEScannerCamera,
-} from "@/src/components/modules";
+  Confirmacion,
+  DatosINE,
+  EscaneoINE,
+  InformacionAdicional,
+  SuccessModal,
+} from "@/src/components/modules/agregar-seguimiento";
+import { useDatosINE } from "@/src/components/modules/agregar-seguimiento/datosINE/useDatosINE";
+import { useEscaneoINE } from "@/src/components/modules/agregar-seguimiento/escaneoINE/useEscaneoINE";
+import { useInformacionAdicional } from "@/src/components/modules/agregar-seguimiento/informacionAdicional/useInformacionAdicional";
 import { Button } from "@/src/components/ui/button";
+import { THEME } from "@/src/components/ui/lib/theme";
 import { Text } from "@/src/components/ui/text";
-import { authService } from "@/src/services/auth";
-import { jornadasService } from "@/src/services/jornadas";
+import { useAgregarSeguimientoForm } from "@/src/forms/useAgregarSeguimientoForm";
+import { useTheme } from "@/src/providers/ThemeProvider";
+import type { TriggerRef } from "@rn-primitives/select";
+import { useRouter } from "expo-router";
+import { useMemo, useRef } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { INEScanResult, processINE } from "@/src/utils/functions";
-import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Easing, ScrollView, View } from "react-native";
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Tipo para los datos del formulario completo
-interface CompleteFormData {
-  referidoGobernador?: string;
-  municipio?: string;
-  localidad?: string;
-  grupoSocial?: string[];
-  telefono?: string;
-  correo?: string;
-  negocio?: string;
-  sat?: string;
-  tipoNegocio?: string;
-  otroTipoNegocio?: string;
-  capacitacion?: string[];
-  ocupacion?: string;
-  comentarios?: string;
-  diagnostico?: string[];
-  areaRegistro?: string;
-}
+export default function AgregarSeguimientoScreen() {
+  const router = useRouter();
+  const { colorScheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const primaryColor = THEME[colorScheme].primary;
+  const secondaryColor = THEME[colorScheme].secondary;
+  const mutedColor = THEME[colorScheme].muted;
+  const backgroundColor = THEME[colorScheme].background;
+  const foregroundColor = THEME[colorScheme].foreground;
+  const mutedForegroundColor = THEME[colorScheme].mutedForeground;
+  const opacity = colorScheme === "dark" ? 0.1 : 0.05;
 
-// Tipo para crear jornada con INE
-interface CreateJornadaWithINEDto {
-  // Datos de la INE
-  nombre: string;
-  primerApellido: string;
-  segundoApellido: string;
-  direccion: string;
-  genero: string;
-  edad: string;
-  curp: string;
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    trigger,
+    values,
+    errors,
+    step,
+    contentInsets,
+    getStepTitle,
+    getStepDescription,
+    getStepIcon,
+    goToNextStep,
+    goToPreviousStep,
+    isLoading,
+    showSuccessModal,
 
-  // Datos del formulario completo
-  referidoGobernador: string;
-  municipio: string;
-  localidad: string;
-  grupoSocial: string[];
-  telefono: string;
-  correo: string;
-  negocio: string;
-  sat: string;
-  tipoNegocio: string;
-  otroTipoNegocio: string;
-  capacitacion: string[];
-  ocupacion: string;
-  comentarios: string;
-  diagnostico: string[];
-  areaRegistro: string;
+    handleCloseModal,
+    handleAddNew,
+  } = useAgregarSeguimientoForm();
 
-  // Archivo INE
-  ineFile: File | { uri: string; name: string; type: string };
-}
+  // Refs para los Select components
+  const municipioRef = useRef<TriggerRef>(null);
+  const tipoNegocioRef = useRef<TriggerRef>(null);
+  const areaRegistroRef = useRef<TriggerRef>(null);
 
-const AgregarSeguimiento = () => {
-  const [step, setStep] = useState(0);
-  const [loadingOCR, setLoadingOCR] = useState(false);
-  const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [formData, setFormData] = useState<Partial<INEScanResult>>({});
-  const [completeFormData, setCompleteFormData] = useState<CompleteFormData>(
-    {}
-  );
-  const [showImage, setShowImage] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  // Verificar autenticación al cargar
-  useEffect(() => {
-    if (!authService.isAuthenticated()) {
-      Alert.alert("No autenticado", "Debes iniciar sesión para continuar", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Redirigir al login
-            // router.push("/login");
-          },
-        },
-      ]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (loadingOCR) {
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      rotateAnim.stopAnimation();
-      rotateAnim.setValue(0);
-    }
-  }, [loadingOCR, rotateAnim]);
-
-  const getImageUri = () => {
-    if (formData.ine) {
-      if (typeof formData.ine === "string") {
-        return formData.ine;
-      }
-      if (formData.ine instanceof File) {
-        return URL.createObjectURL(formData.ine);
-      }
-      if (typeof formData.ine === "object" && "uri" in formData.ine) {
-        return (formData.ine as any).uri;
-      }
-    }
-    return null;
+  const handleCancel = () => {
+    router.back();
   };
 
-  const imageUri = getImageUri();
+  // Verificar si el paso actual está completo para deshabilitar botón en móvil
+  const { isFormComplete: isEscaneoComplete } = useEscaneoINE({
+    values,
+    errors,
+    setValue,
+    trigger,
+  });
+  const { isFormComplete: isDatosINEComplete } = useDatosINE({
+    values,
+    errors,
+  });
+  const { isFormComplete: isInfoAdicionalComplete } = useInformacionAdicional({
+    values,
+    errors,
+  });
 
-  const handleScan = async (
-    file: File | { uri: string; name: string; type: string },
-    setLoading: (val: boolean) => void,
-    setFormDataFromScan: (data: {
-      nombre: string;
-      primerApellido: string;
-      segundoApellido?: string;
-      direccion?: string;
-      genero?: string;
-      edad?: string;
-      curp: string;
-      ine?: File | { uri: string; name: string; type: string };
-    }) => void
-  ) => {
-    console.log("🔍 Iniciando proceso de escaneo...");
-    console.log("📁 Archivo recibido:", file);
-
-    setLoadingOCR(true);
-    setError(null);
-
-    try {
-      console.log("🔄 Procesando imagen con OCR...");
-      const result = await processINE(file);
-
-      if (!result) {
-        setError(
-          "No se pudo leer la INE. Asegúrate de que la imagen sea clara y legible."
-        );
-        setLoadingOCR(false);
-        return;
-      }
-
-      console.log("✅ Resultado del OCR:", result);
-      setFormDataFromScan(result);
-      setStep(1);
-      console.log("✅ Proceso completado exitosamente");
-    } catch (err) {
-      console.error("❌ Error durante el procesamiento:", err);
-      setError(
-        "Error durante el procesamiento de la imagen. Verifica que la imagen sea clara."
-      );
-    } finally {
-      setLoadingOCR(false);
-    }
-  };
-
-  const handleNextStep = () => {
-    if (step < 3) {
-      setStep(step + 1);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    if (step > 0) {
-      setStep(step - 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!authService.isAuthenticated()) {
-      Alert.alert("Error", "Debes iniciar sesión para continuar");
-      return;
-    }
-
-    setLoadingSubmit(true);
-    setError(null);
-
-    try {
-      // Validar datos requeridos
-      if (!formData.nombre || !formData.primerApellido || !formData.curp) {
-        throw new Error("Faltan datos básicos de la INE");
-      }
-
-      if (!completeFormData.areaRegistro) {
-        throw new Error("Debes seleccionar un área de registro");
-      }
-
-      // Preparar datos para el backend
-      const jornadaData: CreateJornadaWithINEDto = {
-        // Datos de la INE
-        nombre: formData.nombre!,
-        primerApellido: formData.primerApellido!,
-        segundoApellido: formData.segundoApellido || "",
-        direccion: formData.direccion || "",
-        genero: formData.genero || "no binaria",
-        edad: formData.edad || "",
-        curp: formData.curp!,
-
-        // Datos del formulario completo
-        referidoGobernador: completeFormData.referidoGobernador || "No",
-        municipio: completeFormData.municipio || "",
-        localidad: completeFormData.localidad || "",
-        grupoSocial: completeFormData.grupoSocial || [],
-        telefono: completeFormData.telefono || "",
-        correo: completeFormData.correo || "",
-        negocio: completeFormData.negocio || "No",
-        sat: completeFormData.sat || "No",
-        tipoNegocio: completeFormData.tipoNegocio || "",
-        otroTipoNegocio: completeFormData.otroTipoNegocio || "",
-        capacitacion: completeFormData.capacitacion || [],
-        ocupacion: completeFormData.ocupacion || "",
-        comentarios: completeFormData.comentarios || "",
-        diagnostico: completeFormData.diagnostico || [],
-        areaRegistro: completeFormData.areaRegistro!,
-
-        // Archivo INE
-        ineFile: formData.ine!,
-      };
-
-      console.log("📤 Enviando jornada al backend:", jornadaData);
-
-      // Crear jornada con INE
-      if (formData.ine instanceof File) {
-        const result = await jornadasService.createWithINE(
-          jornadaData,
-          formData.ine
-        );
-        console.log("✅ Jornada creada exitosamente:", result);
-      } else {
-        throw new Error("El archivo INE debe ser un archivo válido");
-      }
-
-      Alert.alert("¡Éxito!", "La jornada se ha registrado correctamente", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Resetear formulario y volver al inicio
-            setFormData({});
-            setCompleteFormData({});
-            setStep(0);
-            setError(null);
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error("❌ Error enviando jornada:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Error desconocido";
-      setError(`Error al enviar la jornada: ${errorMessage}`);
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setLoadingSubmit(false);
-    }
-  };
-
-  const getStepTitle = () => {
+  const isCurrentStepComplete = useMemo(() => {
     switch (step) {
       case 0:
-        return "Escaneo de INE";
+        return isEscaneoComplete;
       case 1:
-        return "Datos de INE";
+        return isDatosINEComplete;
       case 2:
-        return "Información Adicional";
-      case 3:
-        return "Confirmación";
+        return isInfoAdicionalComplete;
       default:
-        return "Formulario";
-    }
-  };
-
-  const getStepDescription = () => {
-    switch (step) {
-      case 0:
-        return "Escanea la parte frontal de tu INE";
-      case 1:
-        return "Verifica y completa los datos de tu INE";
-      case 2:
-        return "Completa la información adicional requerida";
-      case 3:
-        return "Revisa y confirma toda la información";
-      default:
-        return "Completa el formulario";
-    }
-  };
-
-  const getStepIcon = () => {
-    switch (step) {
-      case 0:
-        return "mdi:camera";
-      case 1:
-        return "mdi:card-account-details";
-      case 2:
-        return "mdi:clipboard-text";
-      case 3:
-        return "mdi:check-circle";
-      default:
-        return "mdi:form";
-    }
-  };
-
-  const canGoNext = () => {
-    switch (step) {
-      case 0:
-        return !!formData.ine;
-      case 1:
-        return !!(formData.nombre && formData.primerApellido && formData.curp);
-      case 2:
-        return !!completeFormData.areaRegistro;
-      case 3:
         return true;
-      default:
-        return false;
     }
-  };
+  }, [step, isEscaneoComplete, isDatosINEComplete, isInfoAdicionalComplete]);
 
   return (
-    <View>
-      <FormHeader
-        step={step}
-        totalSteps={4}
-        title={getStepTitle()}
-        description={getStepDescription()}
-        icon={getStepIcon()}
-        directionName="Formulario General"
-        backRoute="/main"
-      />
-
-      <ScrollView
-        className="flex-1 px-6 py-6"
-        showsVerticalScrollIndicator={false}
-      >
-        <View>
-          {/* Mostrar error si existe */}
-          {error && (
-            <View>
-              <Text className="text-red-600 font-medium">Error</Text>
-              <Text className="text-red-500 text-sm">{error}</Text>
-            </View>
-          )}
-
-          {/* Contenido del paso */}
-          {step === 0 ? (
-            <View>
-              <View>
-                <View>
-                  {/* Image component - using placeholder */}
-                  <View
-                    style={{
-                      width: 384,
-                      height: 384,
-                      alignSelf: "center",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "#F5F5F5",
-                      borderRadius: 8,
-                    }}
-                  >
-                    <Text style={{ color: "#999" }}>GIF de escaneo INE</Text>
-                  </View>
-                </View>
-
-                <View>
-                  <Text className="text-xl font-bold text-typography-900 text-center">
-                    Escanea la parte frontal de tu INE
-                  </Text>
-                  <Text className="text-center text-typography-600 text-base leading-relaxed">
-                    Asegúrate de que la imagen sea clara y legible. Coloca la
-                    INE sobre una superficie plana y bien iluminada, y escanea
-                    la parte frontal.
-                  </Text>
-                </View>
-
-                <INEScannerCamera
-                  onScan={handleScan}
-                  setLoadingOCR={setLoadingOCR}
-                  setFormData={setFormData}
-                />
-              </View>
-            </View>
-          ) : step === 1 ? (
-            <View>
-              <INEForm
-                formData={formData}
-                setFormData={setFormData}
-                imageUri={imageUri}
-                showImage={showImage}
-                setShowImage={setShowImage}
-              />
-            </View>
-          ) : step === 2 ? (
-            <View>
-              <CompleteFormStep1
-                formData={completeFormData}
-                setFormData={setCompleteFormData}
-              />
-            </View>
-          ) : (
-            <View>
-              <CompleteFormStep2
-                formData={completeFormData}
-                setFormData={setCompleteFormData}
-              />
-            </View>
-          )}
-
-          {/* Botones de navegación */}
-          <View>
-            <View style={{ flexDirection: "row" }}>
-              <Button
-                variant="outline"
-                onPress={handlePreviousStep}
-                disabled={step === 0}
-                className="flex-1"
-              >
-                <Text>Anterior</Text>
-              </Button>
-
-              {step < 3 ? (
-                <Button
-                  onPress={handleNextStep}
-                  disabled={!canGoNext() || loadingOCR}
-                  className="flex-1 bg-[#9A1445]"
-                >
-                  <Text>Siguiente</Text>
-                </Button>
-              ) : (
-                <Button
-                  onPress={handleSubmit}
-                  disabled={!canGoNext() || loadingSubmit}
-                  className="flex-1 bg-[#9A1445]"
-                >
-                  <Text>
-                    {loadingSubmit ? "Enviando..." : "Enviar Jornada"}
-                  </Text>
-                </Button>
-              )}
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Modal para mostrar imagen - usando placeholder */}
-      {showImage && imageUri && (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1"
+    >
+      <View className="flex-1 bg-background" style={{ position: "relative" }}>
+        {/* Formas decorativas orgánicas de fondo */}
+        {/* Forma orgánica 1 - Esquina superior derecha */}
         <View
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
+            top: -120,
+            right: -80,
+            width: 350,
+            height: 380,
+            borderRadius: 200,
+            borderTopLeftRadius: 50,
+            borderBottomRightRadius: 250,
+            backgroundColor: primaryColor,
+            opacity,
+            transform: [{ rotate: "-15deg" }],
           }}
+        />
+        {/* Forma orgánica 2 - Lado izquierdo */}
+        <View
+          style={{
+            position: "absolute",
+            top: 180,
+            left: -100,
+            width: 320,
+            height: 280,
+            borderRadius: 180,
+            borderTopRightRadius: 80,
+            borderBottomLeftRadius: 200,
+            backgroundColor: secondaryColor,
+            opacity,
+            transform: [{ rotate: "25deg" }],
+          }}
+        />
+        {/* Forma orgánica 3 - Esquina inferior derecha */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: 150,
+            right: -120,
+            width: 450,
+            height: 420,
+            borderRadius: 250,
+            borderTopLeftRadius: 150,
+            borderBottomRightRadius: 300,
+            backgroundColor: primaryColor,
+            opacity: opacity * 0.7,
+            transform: [{ rotate: "20deg" }],
+          }}
+        />
+        {/* Forma orgánica 4 - Esquina inferior izquierda */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: -180,
+            left: -70,
+            width: 400,
+            height: 380,
+            borderRadius: 220,
+            borderTopRightRadius: 200,
+            borderBottomLeftRadius: 100,
+            backgroundColor: secondaryColor,
+            opacity: opacity * 0.8,
+            transform: [{ rotate: "-30deg" }],
+          }}
+        />
+        {/* Forma orgánica 5 - Centro derecho */}
+        <View
+          style={{
+            position: "absolute",
+            top: SCREEN_HEIGHT * 0.35,
+            right: SCREEN_WIDTH * 0.15,
+            width: 220,
+            height: 200,
+            borderRadius: 120,
+            borderTopLeftRadius: 60,
+            borderBottomRightRadius: 140,
+            backgroundColor: mutedColor,
+            opacity: opacity * 1.2,
+            transform: [{ rotate: "45deg" }],
+          }}
+        />
+        {/* Forma orgánica 6 - Centro superior */}
+        <View
+          style={{
+            position: "absolute",
+            top: SCREEN_HEIGHT * 0.15,
+            left: SCREEN_WIDTH * 0.4,
+            width: 180,
+            height: 160,
+            borderRadius: 100,
+            borderTopRightRadius: 80,
+            borderBottomLeftRadius: 90,
+            backgroundColor: primaryColor,
+            opacity: opacity * 0.6,
+            transform: [{ rotate: "-20deg" }],
+          }}
+        />
+
+        <FormHeader
+          step={step}
+          totalSteps={4}
+          title={getStepTitle()}
+          description={getStepDescription()}
+          icon={getStepIcon()}
+          directionName="Formulario General"
+          backRoute="/home"
+        />
+
+        <ScrollView
+          className="flex-1 px-6 pb-6 bg-transparent"
+          showsVerticalScrollIndicator={false}
+          style={{ zIndex: 1 }}
+          contentContainerStyle={
+            Platform.OS !== "web"
+              ? {
+                  paddingBottom: insets.bottom + 16 + 56 + 16 + 16,
+                }
+              : undefined
+          }
+          scrollEventThrottle={16}
         >
+          <View className="gap-6 w-full max-w-[672px] mx-auto">
+            {step === 0 && (
+              <EscaneoINE
+                control={control}
+                errors={errors}
+                values={values}
+                setValue={setValue}
+                trigger={trigger}
+                contentInsets={contentInsets}
+                onCancel={handleCancel}
+                onNext={goToNextStep}
+                showButtons={Platform.OS === "web"}
+              />
+            )}
+
+            {step === 1 && (
+              <DatosINE
+                control={control}
+                errors={errors}
+                values={values}
+                setValue={setValue}
+                trigger={trigger}
+                contentInsets={contentInsets}
+                onBack={goToPreviousStep}
+                onNext={goToNextStep}
+                showButtons={Platform.OS === "web"}
+              />
+            )}
+
+            {step === 2 && (
+              <InformacionAdicional
+                control={control}
+                errors={errors}
+                values={values}
+                setValue={setValue}
+                trigger={trigger}
+                municipioRef={municipioRef}
+                tipoNegocioRef={tipoNegocioRef}
+                areaRegistroRef={areaRegistroRef}
+                contentInsets={contentInsets}
+                onBack={goToPreviousStep}
+                onNext={goToNextStep}
+                showButtons={Platform.OS === "web"}
+              />
+            )}
+
+            {step === 3 && (
+              <Confirmacion
+                values={values}
+                onBack={goToPreviousStep}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                showButtons={Platform.OS === "web"}
+              />
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Botones fijos en móvil */}
+        {Platform.OS !== "web" && (
           <View
+            className="absolute bottom-0 left-0 right-0 flex-row gap-4 px-6 border-t border-black/10"
             style={{
-              backgroundColor: "white",
-              borderRadius: 8,
-              padding: 16,
-              width: "90%",
-              maxHeight: "80%",
+              zIndex: 10,
+              backgroundColor,
+              paddingBottom: insets.bottom,
+              paddingTop: 16,
+              ...(Platform.OS === "ios"
+                ? {
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: -2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                  }
+                : {
+                    elevation: 8,
+                  }),
             }}
           >
-            <Button
-              onPress={() => setShowImage(false)}
-              style={{ marginBottom: 16 }}
-            >
-              <Text>Cerrar</Text>
-            </Button>
-            {/* Image component - using placeholder */}
-            <View
-              style={{
-                width: "100%",
-                height: 256,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#F5F5F5",
-                borderRadius: 8,
-              }}
-            >
-              <Text style={{ color: "#999" }}>
-                Imagen INE: {imageUri.substring(0, 50)}...
+            {step === 0 ? (
+              <>
+                <Button
+                  variant="outline"
+                  onPress={handleCancel}
+                  className="flex-1"
+                >
+                  <Text>Cancelar</Text>
+                </Button>
+                <Button onPress={goToNextStep} className="flex-1">
+                  <Text>Siguiente</Text>
+                </Button>
+              </>
+            ) : step === 3 ? (
+              <>
+                <Button
+                  variant="outline"
+                  onPress={goToPreviousStep}
+                  className="flex-1"
+                >
+                  <Text>Regresar</Text>
+                </Button>
+                <Button
+                  onPress={handleSubmit}
+                  className="flex-1"
+                  disabled={isLoading}
+                >
+                  <Text>{isLoading ? "Enviando..." : "Finalizar"}</Text>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onPress={goToPreviousStep}
+                  className="flex-1"
+                >
+                  <Text>Regresar</Text>
+                </Button>
+                <Button
+                  onPress={goToNextStep}
+                  className="flex-1"
+                  disabled={!isCurrentStepComplete}
+                >
+                  <Text>Siguiente</Text>
+                </Button>
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Loading overlay durante el guardado */}
+        <Modal
+          visible={isLoading}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+        >
+          <View className="flex-1 justify-center items-center bg-black/50">
+            <View className="items-center">
+              <ActivityIndicator size="large" color={primaryColor} />
+              <Text className="mt-4 text-[15px] font-medium text-white">
+                Guardando...
               </Text>
             </View>
           </View>
-        </View>
-      )}
-    </View>
-  );
-};
+        </Modal>
 
-export default AgregarSeguimiento;
+        {/* Modal de éxito */}
+        <SuccessModal
+          open={showSuccessModal}
+          onClose={handleCloseModal}
+          onAddNew={handleAddNew}
+        />
+      </View>
+    </KeyboardAvoidingView>
+  );
+}

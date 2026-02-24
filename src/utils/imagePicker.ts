@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { Alert } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 
 export const requestCameraPermission = async (): Promise<boolean> => {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -17,8 +17,21 @@ export const pickImageFromCamera = async (): Promise<string | null> => {
 
     if (!hasPermission) {
       Alert.alert(
-        "Permiso Requerido",
-        "Se necesita permiso para acceder a la cámara."
+        "Permiso de cámara requerido",
+        "Esta aplicación necesita acceso a la cámara para tomar fotografías. Por favor, habilita el permiso en Configuración.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          ...(Platform.OS !== "web"
+            ? [
+                {
+                  text: "Abrir configuración",
+                  onPress: () => {
+                    Linking.openSettings();
+                  },
+                },
+              ]
+            : []),
+        ]
       );
       return null;
     }
@@ -50,8 +63,21 @@ export const pickImageFromGallery = async (): Promise<string | null> => {
 
     if (!hasPermission) {
       Alert.alert(
-        "Permiso Requerido",
-        "Se necesita permiso para acceder a la galería."
+        "Permiso de galería requerido",
+        "Esta aplicación necesita acceso a tu galería para seleccionar imágenes. Por favor, habilita el permiso en Configuración.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          ...(Platform.OS !== "web"
+            ? [
+                {
+                  text: "Abrir configuración",
+                  onPress: () => {
+                    Linking.openSettings();
+                  },
+                },
+              ]
+            : []),
+        ]
       );
       return null;
     }
@@ -107,9 +133,28 @@ export const showImagePickerOptions = async (): Promise<string | null> => {
 // Función simplificada que abre directamente la cámara (como en INEScannerCamera)
 export const openCameraDirectly = async (): Promise<string | null> => {
   try {
+    // Solicitar permiso explícitamente
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
     if (!permissionResult.granted) {
-      Alert.alert("Permiso de cámara requerido");
+      // Si el permiso fue denegado, mostrar alerta con opción de ir a configuración
+      Alert.alert(
+        "Permiso de cámara requerido",
+        "Esta aplicación necesita acceso a la cámara para tomar fotografías. Por favor, habilita el permiso en Configuración.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          ...(Platform.OS !== "web"
+            ? [
+                {
+                  text: "Abrir configuración",
+                  onPress: () => {
+                    Linking.openSettings();
+                  },
+                },
+              ]
+            : []),
+        ]
+      );
       return null;
     }
 
@@ -142,8 +187,21 @@ export const pickImagesForWeb = async (
 
     if (!hasPermission) {
       Alert.alert(
-        "Permiso Requerido",
-        "Se necesita permiso para acceder a la galería."
+        "Permiso de galería requerido",
+        "Esta aplicación necesita acceso a tu galería para seleccionar imágenes. Por favor, habilita el permiso en Configuración.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          ...(Platform.OS !== "web"
+            ? [
+                {
+                  text: "Abrir configuración",
+                  onPress: () => {
+                    Linking.openSettings();
+                  },
+                },
+              ]
+            : []),
+        ]
       );
       return [];
     }

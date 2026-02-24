@@ -1,4 +1,8 @@
-import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
 import {
   DropdownMenu,
@@ -11,8 +15,11 @@ import { cn } from "@/src/components/ui/lib/utils";
 import { Text } from "@/src/components/ui/text";
 import { useTheme } from "@/src/providers/ThemeProvider";
 import { UserData } from "@/src/services/auth";
-import { LogOutIcon } from "lucide-react-native";
+import { filesService } from "@/src/services/files";
+import { useRouter } from "expo-router";
+import { LogOutIcon, SettingsIcon } from "lucide-react-native";
 import * as React from "react";
+import { useMemo } from "react";
 import { Modal, Platform, TouchableWithoutFeedback, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,6 +32,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const backgroundColor = THEME[colorScheme].background;
   const borderColor = THEME[colorScheme].border;
 
@@ -44,6 +52,21 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         </View>
       </View>
       <View className="flex-row flex-wrap gap-3 py-0.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={() => {
+            setIsOpen(false);
+            router.push("/(protected)/gestionar-cuenta");
+          }}
+        >
+          <Icon
+            as={SettingsIcon}
+            className="size-4"
+            color={THEME[colorScheme].foreground}
+          />
+          <Text>Configuración</Text>
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -143,12 +166,44 @@ function UserAvatar({
     return user.nombre[0].toUpperCase();
   };
 
+  // Generar URL de la imagen de perfil
+  const imageUrl = useMemo(() => {
+    let fileId: string | null = null;
+
+    // Prioridad 1: Si tenemos el fileId directamente
+    if (user?.profilePhotoFileId) {
+      fileId = user.profilePhotoFileId;
+    }
+    // Prioridad 2: Si hay profilePhoto, extraer el fileId de la URL
+    else if (user?.profilePhoto) {
+      const fileIdMatch = user.profilePhoto.match(/\/files\/([a-zA-Z0-9]+)/);
+      if (fileIdMatch && fileIdMatch[1]) {
+        fileId = fileIdMatch[1];
+      }
+      // Si la URL ya es completa (empieza con http/https), usarla directamente
+      else if (
+        user.profilePhoto.startsWith("http://") ||
+        user.profilePhoto.startsWith("https://")
+      ) {
+        return user.profilePhoto;
+      }
+    }
+
+    // Si tenemos un fileId, construir la URL completa
+    if (fileId) {
+      return filesService.getImageUrl(fileId, "images");
+    }
+
+    return null;
+  }, [user?.profilePhoto, user?.profilePhotoFileId]);
+
   return (
     <Avatar
       alt={`${user?.nombre || "Usuario"}'s avatar`}
       className={cn("size-8", className)}
       {...props}
     >
+      {imageUrl && <AvatarImage source={{ uri: imageUrl }} />}
       <AvatarFallback className="bg-primary">
         <Text className="text-primary-foreground text-sm font-semibold">
           {getInitials()}

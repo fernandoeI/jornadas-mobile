@@ -1,7 +1,7 @@
-import { economiaSocialService } from "@/src/services/economia-social";
+import { usePrecheckCurp, usePrecheckTelefono, useValidateRenapo } from "@/src/hooks";
+import { useCreateTanda2Request } from "@/src/hooks/useCreateTanda2Request";
 import { yupResolver } from "@hookform/resolvers/yup";
 import type { TriggerRef } from "@rn-primitives/select";
-import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
@@ -111,16 +111,18 @@ export const useEconomiaSocialForm = () => {
 
   const values = watch();
 
-  const mutation = useMutation({
-    mutationFn: async (data: EconomiaSocialFormData) => {
-      return await economiaSocialService.createTanda2Request(data);
-    },
-    onSuccess: (response) => {
-      const folioValue = response?.folio || response?.data?.folio || "N/A";
-      setFolio(folioValue);
-      setShowSuccessModal(true);
-    },
-    onError: (error: any) => {
+  const createTanda2Mutation = useCreateTanda2Request();
+
+  // Wrapper para mantener compatibilidad con el código existente
+  const mutation = {
+    mutate: (data: EconomiaSocialFormData) => {
+      createTanda2Mutation.mutate(data, {
+        onSuccess: (response) => {
+          const folioValue = response?.folio || response?.data?.folio || "N/A";
+          setFolio(folioValue);
+          setShowSuccessModal(true);
+        },
+        onError: (error: any) => {
       console.error("❌ Error enviando formulario:", error);
       console.error("📋 Datos completos del error:", {
         message: error?.message,
@@ -183,9 +185,14 @@ export const useEconomiaSocialForm = () => {
         ? "Errores de validación"
         : "Error al enviar formulario";
 
-      Alert.alert(errorTitle, errorMessage);
+          Alert.alert(errorTitle, errorMessage);
+        },
+      });
     },
-  });
+    isPending: createTanda2Mutation.isPending,
+    isError: createTanda2Mutation.isError,
+    error: createTanda2Mutation.error,
+  };
 
   const onSubmit = (data: EconomiaSocialFormData) => {
     mutation.mutate(data);
@@ -345,10 +352,20 @@ export const useEconomiaSocialForm = () => {
     resetForm();
   };
 
+  // Hooks para validaciones
+  const precheckCurpMutation = usePrecheckCurp();
+  const validateRenapoMutation = useValidateRenapo();
+  const precheckTelefonoMutation = usePrecheckTelefono();
+
   // Funciones de validación para usar en el formulario
   const validateCurp = async (curp: string) => {
     try {
-      const result = await economiaSocialService.precheckCurp(curp);
+      const result = await new Promise((resolve, reject) => {
+        precheckCurpMutation.mutate(curp, {
+          onSuccess: resolve,
+          onError: reject,
+        });
+      });
       return result;
     } catch (error: any) {
       throw new Error(
@@ -360,7 +377,12 @@ export const useEconomiaSocialForm = () => {
 
   const validateCurpRenapo = async (curp: string) => {
     try {
-      const result = await economiaSocialService.validateRenapo(curp);
+      const result = await new Promise((resolve, reject) => {
+        validateRenapoMutation.mutate(curp, {
+          onSuccess: resolve,
+          onError: reject,
+        });
+      });
       return result;
     } catch (error: any) {
       throw new Error(
@@ -372,7 +394,12 @@ export const useEconomiaSocialForm = () => {
 
   const validateTelefono = async (telefono: string) => {
     try {
-      const result = await economiaSocialService.precheckTelefono(telefono);
+      const result = await new Promise((resolve, reject) => {
+        precheckTelefonoMutation.mutate(telefono, {
+          onSuccess: resolve,
+          onError: reject,
+        });
+      });
       return result;
     } catch (error: any) {
       throw new Error(

@@ -13,6 +13,7 @@ import { Text } from "@/src/components/ui/text";
 import { useSignInForm } from "@/src/forms/useSignInForm";
 import { Monicon } from "@monicon/native";
 import { AlertCircleIcon } from "lucide-react-native";
+import { Link } from "expo-router";
 import { Controller } from "react-hook-form";
 import {
   Image,
@@ -41,8 +42,8 @@ export function SignInForm() {
       : require("@/src/assets/images/logo-vertical-color.png");
 
   return (
-    <View className="gap-6 bg-primary">
-      <Card className="backdrop-blur-3xl border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5">
+    <View className="gap-6 bg-primary w-full max-w-md">
+      <Card className="backdrop-blur-3xl border-border/0 sm:border-border shadow-none sm:shadow-sm sm:shadow-black/5 w-full">
         <CardHeader>
           <Image
             source={logoSource}
@@ -101,9 +102,7 @@ export function SignInForm() {
               )}
             </View>
             <View className="gap-1.5">
-              <View className="flex-row items-center">
-                <Label htmlFor="password">Contraseña</Label>
-              </View>
+              <Label htmlFor="password">Contraseña</Label>
               <View style={{ position: "relative" }}>
                 <Controller
                   control={control}
@@ -140,6 +139,13 @@ export function SignInForm() {
                 </Text>
               )}
             </View>
+            <View className="flex-row justify-end">
+              <Link href="/(auth)/forgot-password" asChild>
+                <Text className="text-sm text-primary font-medium">
+                  ¿Olvidaste tu contraseña?
+                </Text>
+              </Link>
+            </View>
             <Button
               className="w-full"
               onPress={handleSubmit}
@@ -147,6 +153,16 @@ export function SignInForm() {
             >
               <Text>{isLoading ? "Iniciando sesión..." : "Continuar"}</Text>
             </Button>
+            <View className="flex-row justify-center items-center gap-1">
+              <Text className="text-sm text-muted-foreground">
+                ¿No tienes una cuenta?
+              </Text>
+              <Link href="/(auth)/sign-up" asChild>
+                <Text className="text-sm text-primary font-medium">
+                  Regístrate
+                </Text>
+              </Link>
+            </View>
           </View>
         </CardContent>
       </Card>

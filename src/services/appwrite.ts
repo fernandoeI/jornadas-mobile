@@ -3,6 +3,7 @@ import {
   Account,
   Client,
   Databases,
+  Functions,
   ID,
   Models,
   Storage,
@@ -57,6 +58,7 @@ let client: Client | null = null;
 let account: Account | null = null;
 let databases: Databases | null = null;
 let storage: Storage | null = null;
+let functions: Functions | null = null;
 
 export const getAppwriteClient = (): Client => {
   if (!client) {
@@ -91,23 +93,31 @@ export const getAppwriteStorage = (): Storage => {
   return storage;
 };
 
+export const getAppwriteFunctions = (): Functions => {
+  if (!functions) {
+    functions = new Functions(getAppwriteClient());
+  }
+  return functions;
+};
+
 // IDs de las bases de datos y colecciones (deberás crearlos en Appwrite Console)
 export const APPWRITE_CONFIG = {
   DATABASE_ID: "6909241100357bdd2bcf", // ID de tu base de datos en Appwrite
   COLLECTIONS: {
-    JORNADAS: "jornadas",
+    JORNADAS: "69543f1c00020e3d9923",
     APOYO_NEGOCIO: "apoyo_negocio",
     FERIAS_FESTIVALES: "ferias_festivales",
     DESARROLLO_COMERCIAL: "desarrollo_comercial",
     DESARROLLO_TURISTICO: "desarrollo_turistico",
-    PROMOCION_TURISTICA: "promocion_turistica",
-    ECONOMIA_SOCIAL: "economia_social",
+    PROMOCION_TURISTICA: "690d186000159d33beab",
+    ECONOMIA_SOCIAL: "69583dca003293334a52",
     IMPULSO_INVERSIONES: "impulso_inversiones",
     FONDOS_FINANCIAMIENTO: "fondos_financiamiento",
+    COCINERAS_TRADICIONALES: "cocineras_tradicionales",
   },
   STORAGE_BUCKETS: {
     IMAGES: "690cf3490012abf5e098", // ID de tu bucket de almacenamiento en Appwrite
-    INE_IMAGES: "ine_images",
+    INE_IMAGES: "694ef0a10023fc5b74e1",
   },
 };
 

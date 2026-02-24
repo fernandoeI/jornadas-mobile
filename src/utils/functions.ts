@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Dimensions, Platform } from "react-native";
 
@@ -27,21 +28,29 @@ export interface INEScanResult {
 export const scanINEImage = async (
   file: File | { uri: string; name: string; type: string }
 ): Promise<string | null> => {
-  console.log("🔍 Iniciando scanINEImage...");
-  console.log("📁 Archivo para OCR:", file);
+  // Obtener la API key desde variables de entorno
+  const ocrApiKey =
+    process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+    Constants.expoConfig?.extra?.ocrSpaceApiKey ||
+    process.env.VITE_OCR_SPACE_API_KEY ||
+    "";
+
+  if (!ocrApiKey) {
+    throw new Error(
+      "OCR Space API Key no configurada. Por favor configura EXPO_PUBLIC_OCR_SPACE_API_KEY en tu archivo .env"
+    );
+  }
 
   const formData = new FormData();
 
-  formData.append("apikey", "K86170781188957");
+  formData.append("apikey", ocrApiKey);
   formData.append("language", "spa");
   formData.append("isOverlayRequired", "false");
   formData.append("OCREngine", "2");
 
   if (Platform.OS === "web") {
-    console.log("🌐 Plataforma web detectada");
     formData.append("file", file as File);
   } else {
-    console.log("📱 Plataforma móvil detectada");
     formData.append("file", {
       uri: (file as any).uri,
       name: (file as any).name,
@@ -50,68 +59,30 @@ export const scanINEImage = async (
   }
 
   try {
-    console.log("📡 Enviando petición a OCR.space...");
-    const response = await fetch("https://api.ocr.space/parse/image", {
+    const response = await fetch("https://apipro1.ocr.space/parse/image", {
       method: "POST",
       body: formData,
     });
 
-    console.log("📡 Respuesta recibida:", response.status, response.statusText);
     const result = await response.json();
-    console.log("🔍 OCR SPACE RESULT:", result);
 
     if (result.IsErroredOnProcessing) {
-      console.error("❌ Error de OCR:", result.ErrorMessage);
       return null;
     }
 
     const parsedText = result.ParsedResults?.[0]?.ParsedText || null;
-    console.log("📝 Texto extraído:", parsedText);
     return parsedText;
-  } catch (error) {
-    console.error("❌ Error en fetch de OCR:", error);
+  } catch {
     return null;
   }
-};
-
-const cropINE = (img: HTMLImageElement): HTMLCanvasElement => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context no disponible");
-
-  const { width, height } = img;
-  const left = width * 0.08;
-  const top = height * 0.22;
-  const cropWidth = width * 0.84;
-  const cropHeight = height * 0.56;
-
-  canvas.width = cropWidth;
-  canvas.height = cropHeight;
-  ctx.drawImage(
-    img,
-    left,
-    top,
-    cropWidth,
-    cropHeight,
-    0,
-    0,
-    cropWidth,
-    cropHeight
-  );
-
-  return canvas;
 };
 
 export const compressImage = async (
   file: File | { uri: string; name: string; type: string },
   maxSizeInKB = 800
 ): Promise<File | { uri: string; name: string; type: string }> => {
-  console.log("🔄 Iniciando compresión de imagen...");
-  console.log("📁 Archivo original:", file);
-
   try {
     if (Platform.OS === "web") {
-      console.log("🌐 Comprimiendo en web...");
       const webFile = file as File;
 
       // Crear una imagen para obtener dimensiones
@@ -124,13 +95,6 @@ export const compressImage = async (
       return new Promise((resolve, reject) => {
         img.onload = () => {
           try {
-            console.log(
-              "📐 Dimensiones originales:",
-              img.width,
-              "x",
-              img.height
-            );
-
             // Calcular nuevas dimensiones manteniendo aspect ratio
             const maxDimension = 1200;
             let { width, height } = img;
@@ -147,8 +111,6 @@ export const compressImage = async (
               }
             }
 
-            console.log("📐 Dimensiones comprimidas:", width, "x", height);
-
             canvas.width = width;
             canvas.height = height;
 
@@ -162,7 +124,6 @@ export const compressImage = async (
                   const compressedFile = new File([blob], webFile.name, {
                     type: "image/jpeg",
                   });
-                  console.log("✅ Imagen comprimida en web:", compressedFile);
                   resolve(compressedFile);
                 } else {
                   reject(new Error("Error al comprimir imagen"));
@@ -171,21 +132,18 @@ export const compressImage = async (
               "image/jpeg",
               0.7 // Calidad reducida
             );
-          } catch (error) {
-            console.error("❌ Error comprimiendo imagen en web:", error);
-            reject(error);
+          } catch {
+            reject(new Error("Error al comprimir imagen"));
           }
         };
 
         img.onerror = () => {
-          console.error("❌ Error cargando imagen");
           reject(new Error("Error cargando imagen"));
         };
 
         img.src = URL.createObjectURL(webFile);
       });
     } else {
-      console.log("📱 Comprimiendo en móvil...");
       const mobileFile = file as { uri: string; name: string; type: string };
 
       const result = await ImageManipulator.manipulateAsync(
@@ -197,15 +155,13 @@ export const compressImage = async (
         }
       );
 
-      console.log("✅ Imagen comprimida en móvil:", result);
       return {
         uri: result.uri,
         name: mobileFile.name,
         type: "image/jpeg",
       };
     }
-  } catch (error) {
-    console.error("❌ Error en compresión:", error);
+  } catch {
     // Si falla la compresión, devolver el archivo original
     return file;
   }
@@ -230,8 +186,7 @@ const calcularEdadDesdeFecha = (fechaStr: string): string => {
     }
 
     return String(edad);
-  } catch (error) {
-    console.error("❌ Error calculando edad:", error);
+  } catch {
     return "";
   }
 };
@@ -254,46 +209,26 @@ const extractCURPFromLines = (lines: string[]): string => {
 export const processINE = async (
   file: File | { uri: string; name: string; type: string }
 ): Promise<INEScanResult | null> => {
-  console.log("🔍 Iniciando processINE...");
-  console.log("📁 Archivo de entrada:", file);
-
   try {
-    console.log("🔄 Comprimiendo imagen...");
     const compressedFile = await compressImage(file, 800);
-    console.log("✅ Imagen comprimida:", compressedFile);
-
-    console.log("🔍 Enviando a OCR...");
     const text = await scanINEImage(compressedFile);
-    console.log("📝 Texto extraído del OCR:", text);
 
     if (!text) {
-      console.error("❌ No se obtuvo texto del OCR");
       return null;
     }
 
-    console.log("🔍 Procesando líneas de texto...");
     const lines = text
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
 
-    console.log("📝 Líneas encontradas:", lines);
-
     const indexNombre = lines.findIndex((line) => line === "NOMBRE");
-    console.log("👤 Índice de NOMBRE:", indexNombre);
 
     const apellidoPaterno = lines[indexNombre + 1] || "";
     const apellidoMaterno = lines[indexNombre + 2] || "";
     const nombre = lines[indexNombre + 3] || "";
 
-    console.log("👤 Datos extraídos:", {
-      apellidoPaterno,
-      apellidoMaterno,
-      nombre,
-    });
-
     const direccionIndex = lines.findIndex((line) => line === "DOMICILIO");
-    console.log("🏠 Índice de DOMICILIO:", direccionIndex);
 
     const direccion = [
       lines[direccionIndex + 1],
@@ -303,26 +238,19 @@ export const processINE = async (
       .filter(Boolean)
       .join(" ");
 
-    console.log("🏠 Dirección extraída:", direccion);
-
     const curp = extractCURPFromLines(lines);
-    console.log("🆔 CURP extraída:", curp);
 
     const fechaNacimiento =
       lines.find((line) => /^\d{2}\/\d{2}\/\d{4}$/.test(line)) ?? "";
-    console.log("📅 Fecha de nacimiento:", fechaNacimiento);
 
     const sexoLine =
       lines.find((line) => line.startsWith("SEXO"))?.toUpperCase() || "";
-    console.log("👥 Línea de sexo:", sexoLine);
 
     const sexo = sexoLine.includes("H")
       ? "masculino"
       : sexoLine.includes("M")
-      ? "femenino"
-      : "no binaria";
-
-    console.log("👥 Sexo determinado:", sexo);
+        ? "femenino"
+        : "no binaria";
 
     const result = {
       ine: compressedFile, // Guardar la imagen comprimida
@@ -335,10 +263,8 @@ export const processINE = async (
       curp,
     };
 
-    console.log("✅ Resultado final:", result);
     return result;
-  } catch (error) {
-    console.error("❌ Error en processINE:", error);
-    throw error;
+  } catch {
+    throw new Error("Error procesando INE");
   }
 };
