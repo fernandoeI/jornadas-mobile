@@ -9,3 +9,4 @@ export { useCreateTanda } from "./useCreateTanda";
 export { useGetTandas } from "./useGetTandas";
 export { useGetJornadasDelDia } from "./useGetJornadasDelDia";
 
+export * from "./useCatalog";

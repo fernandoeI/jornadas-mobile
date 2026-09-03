@@ -1,0 +1,10 @@
+{
+  "name": "jornadas-identity-api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^6.10.1"
+  }
+}

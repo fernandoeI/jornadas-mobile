@@ -16,17 +16,19 @@ const getAppwriteConfig = () => {
   // 2. Constants.expoConfig.extra (configurado en app.json)
   // 3. process.env.VITE_* (compatibilidad con Vite)
 
-  const endpoint =
+  const endpoint = (
     process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT ||
     Constants.expoConfig?.extra?.appwriteEndpoint ||
     process.env.VITE_APPWRITE_PUBLIC_ENDPOINT ||
-    "";
+    ""
+  ).trim();
 
-  const projectId =
+  const projectId = (
     process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ||
     Constants.expoConfig?.extra?.appwriteProjectId ||
     process.env.VITE_APPWRITE_PROJECT_ID ||
-    "";
+    ""
+  ).trim();
 
   const platform = Constants.expoConfig?.slug || "com.jornadasdeatencion.app";
 
@@ -46,7 +48,7 @@ const getAppwriteConfig = () => {
       },
     });
     throw new Error(
-      "Appwrite configuration is missing. Please set EXPO_PUBLIC_APPWRITE_ENDPOINT and EXPO_PUBLIC_APPWRITE_PROJECT_ID in your .env file or app.json"
+      "Appwrite configuration is missing. Please set EXPO_PUBLIC_APPWRITE_ENDPOINT and EXPO_PUBLIC_APPWRITE_PROJECT_ID in your .env file or app.json",
     );
   }
 
@@ -102,8 +104,18 @@ export const getAppwriteFunctions = (): Functions => {
 
 // IDs de las bases de datos y colecciones (deberás crearlos en Appwrite Console)
 export const APPWRITE_CONFIG = {
-  DATABASE_ID: "6909241100357bdd2bcf", // ID de tu base de datos en Appwrite
+  DATABASE_ID: "jornadas",
   COLLECTIONS: {
+    UNIDADES_ADMINISTRATIVAS: "unidades_administrativas",
+    USUARIOS_PERFIL: "usuarios_perfil",
+    TRAMITES_SERVICIOS: "tramites_servicios",
+    REQUISITOS: "requisitos",
+    SOLICITUDES: "solicitudes",
+    DOCUMENTOS_SOLICITUD: "documentos_solicitud",
+    HISTORIAL_SOLICITUD: "historial_solicitud",
+    FOLIO_CONTADORES: "folio_contadores",
+    CONFIGURACION_FORMULARIO_GLOBAL: "configuracion_formulario_global",
+    EVENTOS_ATENCION: "eventos_atencion",
     JORNADAS: "69543f1c00020e3d9923",
     APOYO_NEGOCIO: "apoyo_negocio",
     FERIAS_FESTIVALES: "ferias_festivales",
@@ -116,6 +128,7 @@ export const APPWRITE_CONFIG = {
     COCINERAS_TRADICIONALES: "cocineras_tradicionales",
   },
   STORAGE_BUCKETS: {
+    CATALOG_IMAGES: "catalog-images",
     IMAGES: "690cf3490012abf5e098", // ID de tu bucket de almacenamiento en Appwrite
     INE_IMAGES: "694ef0a10023fc5b74e1",
   },

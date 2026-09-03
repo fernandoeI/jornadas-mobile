@@ -59,11 +59,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({ onLogout }) => {
       </View>
 
       <Text className="text-2xl font-bold text-foreground">
-        Bienvenido{user?.nombre ? `, ${user.nombre}` : ""}
+        Bienvenido, {user?.nombre}
       </Text>
-      <Text className="text-base text-muted-foreground">
-        Selecciona una opción para continuar
-      </Text>
+      {/* <Text className="text-base text-muted-foreground">
+        Trámites y servicios de la SECTUR en un solo lugar
+      </Text> */}
     </View>
   );
 };

@@ -117,7 +117,7 @@
         "projectId": "83eec167-69d8-46cc-8bf1-136604545dd9"
       },
       "appwriteEndpoint": "https://jornadasturismo.tabasco.gob.mx/v1",
-      "appwriteProjectId": "",
+      "appwriteProjectId": "6a99a27300154bdcf449",
       "ocrSpaceApiKey": ""
     },
     "runtimeVersion": "1.0.0",

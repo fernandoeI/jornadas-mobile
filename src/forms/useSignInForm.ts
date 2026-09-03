@@ -29,10 +29,16 @@ export const useSignInForm = () => {
   const mutation = useMutation({
     mutationFn: async (data: SignInFormData) => {
       setError(null);
-      await login(data.email, data.password);
+      return login(data.email, data.password);
     },
-    onSuccess: () => {
-      router.replace("/home");
+    onSuccess: (user) => {
+      router.replace(
+        user.role === "super_admin" ||
+        user.role === "gestor" ||
+        user.role === "secretaria"
+          ? ("/(protected)/admin" as any)
+          : ("/(protected)/(tabs)/home" as any),
+      );
     },
     onError: (error: any) => {
       console.error("Error en login:", error);

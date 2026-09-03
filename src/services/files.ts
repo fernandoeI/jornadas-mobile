@@ -17,15 +17,19 @@ export interface FileUploadResponse {
 }
 
 class FilesService {
-  private getBucketId(bucketType: "images" | "ine_images" = "images"): string {
-    return bucketType === "ine_images"
-      ? APPWRITE_CONFIG.STORAGE_BUCKETS.INE_IMAGES
-      : APPWRITE_CONFIG.STORAGE_BUCKETS.IMAGES;
+  private getBucketId(
+    bucketType: "images" | "ine_images" | "catalog_images" = "images",
+  ): string {
+    return bucketType === "catalog_images"
+      ? APPWRITE_CONFIG.STORAGE_BUCKETS.CATALOG_IMAGES
+      : bucketType === "ine_images"
+        ? APPWRITE_CONFIG.STORAGE_BUCKETS.INE_IMAGES
+        : APPWRITE_CONFIG.STORAGE_BUCKETS.IMAGES;
   }
 
   async uploadImage(
     file: File | { uri: string; name: string; type: string },
-    bucketType: "images" | "ine_images" = "images"
+    bucketType: "images" | "ine_images" | "catalog_images" = "images",
   ): Promise<FileUploadResponse> {
     try {
       // Verificar autenticación antes de intentar subir
@@ -35,7 +39,7 @@ class FilesService {
         await account.get();
       } catch (authError: any) {
         throw new Error(
-          `No estás autenticado: ${authError?.message || "Por favor inicia sesión nuevamente"}`
+          `No estás autenticado: ${authError?.message || "Por favor inicia sesión nuevamente"}`,
         );
       }
 
@@ -107,14 +111,14 @@ class FilesService {
           response = await storage.createFile(
             bucketId,
             fileId,
-            fileToUpload as any
+            fileToUpload as any,
           );
         } catch (createFileError: any) {
           throw createFileError;
         }
       } catch (createError: any) {
         throw new Error(
-          `Error al subir el archivo: ${createError?.message || createError?.code || "Error desconocido"}`
+          `Error al subir el archivo: ${createError?.message || createError?.code || "Error desconocido"}`,
         );
       }
 
@@ -141,13 +145,13 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
         Constants.expoConfig?.extra?.appwriteEndpoint ||
         process.env.VITE_APPWRITE_PUBLIC_ENDPOINT ||
         "";
-      
+
       const projectId =
         process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ||
         Constants.expoConfig?.extra?.appwriteProjectId ||
         process.env.VITE_APPWRITE_PROJECT_ID ||
         "";
-      
+
       const fileUrl = `${endpoint}/storage/buckets/${bucketId}/files/${response.$id}/view?project=${projectId}`;
 
       const fileName =
@@ -175,11 +179,11 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
 
   async uploadMultipleImages(
     files: (File | { uri: string; name: string; type: string })[],
-    bucketType: "images" | "ine_images" = "images"
+    bucketType: "images" | "ine_images" | "catalog_images" = "images",
   ): Promise<FileUploadResponse[]> {
     try {
       const uploadPromises = files.map((file) =>
-        this.uploadImage(file, bucketType)
+        this.uploadImage(file, bucketType),
       );
 
       return await Promise.all(uploadPromises);
@@ -190,29 +194,34 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
 
   getImageUrl(
     fileId: string,
-    bucketType: "images" | "ine_images" = "images"
+    bucketType: "images" | "ine_images" | "catalog_images" = "images",
   ): string {
     const bucketId = this.getBucketId(bucketType);
-    
+
     // Obtener endpoint y projectId de la misma manera que en appwrite.ts
     const endpoint =
       process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT ||
       Constants.expoConfig?.extra?.appwriteEndpoint ||
       process.env.VITE_APPWRITE_PUBLIC_ENDPOINT ||
       "";
-    
+
     const projectId =
       process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ||
       Constants.expoConfig?.extra?.appwriteProjectId ||
       process.env.VITE_APPWRITE_PROJECT_ID ||
       "";
-    
+
     // Validar que tengamos endpoint y projectId
     if (!endpoint || !projectId) {
-      console.error("getImageUrl - Faltan endpoint o projectId:", { endpoint, projectId });
-      throw new Error("Appwrite configuration is missing endpoint or projectId");
+      console.error("getImageUrl - Faltan endpoint o projectId:", {
+        endpoint,
+        projectId,
+      });
+      throw new Error(
+        "Appwrite configuration is missing endpoint or projectId",
+      );
     }
-    
+
     const url = `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/view?project=${projectId}`;
     console.log("getImageUrl - URL generada:", url);
     return url;
@@ -220,7 +229,7 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
 
   async deleteImage(
     fileId: string,
-    bucketType: "images" | "ine_images" = "images"
+    bucketType: "images" | "ine_images" | "catalog_images" = "images",
   ): Promise<void> {
     try {
       const storage = getAppwriteStorage();

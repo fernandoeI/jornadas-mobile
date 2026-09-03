@@ -27,6 +27,15 @@ const ALL_MENU_ITEMS: MenuItem[] = [
   },
 ];
 
+
+const ALL_ROUTES = [
+  {
+    title: 'Inicio',
+    route: "/home",
+    color: '#981646',
+  },
+]
+
 /**
  * Obtiene los items del menú filtrados según los labels del usuario
  * @param userLabels - Labels del usuario desde Appwrite
@@ -58,4 +67,6 @@ export const getHomeMenuItems = (userLabels?: string[]): MenuItem[] => {
 };
 
 // Exportar también la constante para compatibilidad (pero se recomienda usar getHomeMenuItems)
-export const HOME_MENU_ITEMS = ALL_MENU_ITEMS;
+// export const HOME_MENU_ITEMS = ALL_MENU_ITEMS;
+
+export const HOME_MENU_ITEMS = ALL_ROUTES

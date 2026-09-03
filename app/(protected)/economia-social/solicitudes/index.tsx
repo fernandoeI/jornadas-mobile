@@ -42,7 +42,7 @@ export default function SolicitudesEconomiaSocialScreen() {
 
   // Redirigir al home si no tiene el label requerido
   if (!hasEconomiaSocialLabel) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/home" />;
   }
 
   const {

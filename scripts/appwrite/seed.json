@@ -1,0 +1,68 @@
+{
+  "units": [
+    { "id": "economia-social", "code": "ES", "name": "Economía Social", "description": "Programas de economía social y Tandas para la Mujer" },
+    { "id": "promocion-turistica", "code": "PT", "name": "Promoción Turística", "description": "Promoción y difusión de atractivos turísticos" },
+    { "id": "ferias-festivales", "code": "FF", "name": "Ferias y Festivales", "description": "Ferias, festivales y cocineras tradicionales" },
+    { "id": "desarrollo-comercial", "code": "DC", "name": "Desarrollo Comercial", "description": "Formalización y fortalecimiento comercial" },
+    { "id": "desarrollo-turistico", "code": "DT", "name": "Desarrollo Turístico", "description": "Desarrollo de productos y destinos turísticos" },
+    { "id": "impulso-inversiones", "code": "II", "name": "Impulso a las Inversiones", "description": "Atención y acompañamiento a proyectos de inversión" },
+    { "id": "fondos-financiamiento", "code": "FI", "name": "Fondos y Financiamiento", "description": "Programas de crédito y financiamiento turístico" }
+  ],
+  "services": [
+    {
+      "id": "tandas-mujer",
+      "unitId": "economia-social",
+      "code": "ES-TM-001",
+      "type": "programa",
+      "name": "Tandas de la Mujer",
+      "description": "Programa destinado a mujeres emprendedoras.",
+      "targetAudience": "Mujeres mayores de edad que tengan o quieran iniciar un negocio.",
+      "cost": "Gratuito",
+      "requirements": ["INE vigente", "CURP", "Comprobante de domicilio", "Descripción del emprendimiento"]
+    },
+    {
+      "id": "formalizacion",
+      "unitId": "desarrollo-comercial",
+      "code": "DC-FO-001",
+      "type": "servicio",
+      "name": "Di sí a la formalización",
+      "description": "Asesoría para la formalización de negocios.",
+      "targetAudience": "Personas emprendedoras y prestadores de servicios.",
+      "cost": "Gratuito",
+      "requirements": ["INE vigente", "CURP", "Comprobante de domicilio", "Información básica del negocio"]
+    },
+    {
+      "id": "asesores-expertos",
+      "unitId": "desarrollo-comercial",
+      "code": "DC-AE-001",
+      "type": "servicio",
+      "name": "Asesores Expertos",
+      "description": "Asesoría especializada para fortalecer negocios.",
+      "targetAudience": "Personas emprendedoras y empresas del sector turístico.",
+      "cost": "Gratuito",
+      "requirements": ["Identificación oficial", "CURP", "Descripción de la asesoría solicitada"]
+    },
+    {
+      "id": "apoyo-eventos",
+      "unitId": "ferias-festivales",
+      "code": "FF-AE-001",
+      "type": "tramite",
+      "name": "Apoyo a eventos",
+      "description": "Registro de solicitudes de apoyo para eventos turísticos.",
+      "targetAudience": "Organizadores de eventos con vocación turística.",
+      "cost": "Gratuito",
+      "requirements": ["Identificación oficial", "Datos generales del evento", "Programa del evento"]
+    },
+    {
+      "id": "financiamiento-prestadores",
+      "unitId": "fondos-financiamiento",
+      "code": "FI-FP-001",
+      "type": "tramite",
+      "name": "Financiamiento a prestadores",
+      "description": "Orientación y registro para opciones de financiamiento.",
+      "targetAudience": "Prestadores de servicios turísticos.",
+      "cost": "Gratuito",
+      "requirements": ["Identificación oficial", "CURP", "Comprobante de domicilio", "Información del negocio"]
+    }
+  ]
+}

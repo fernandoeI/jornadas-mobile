@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { ActivityIndicator, Image, View } from "react-native";
 
 const Splash = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -12,7 +12,13 @@ const Splash = () => {
       // Pequeño delay para mostrar el splash
       const timer = setTimeout(() => {
         if (isAuthenticated) {
-          router.replace("/(protected)/(tabs)/home");
+          router.replace(
+            user?.role === "super_admin" ||
+            user?.role === "gestor" ||
+            user?.role === "secretaria"
+              ? ("/(protected)/admin" as any)
+              : "/(protected)/(tabs)/home",
+          );
         } else {
           router.replace("/(auth)/login");
         }
@@ -20,7 +26,7 @@ const Splash = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user?.role, router]);
 
   return (
     <View

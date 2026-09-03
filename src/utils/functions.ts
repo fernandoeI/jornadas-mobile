@@ -26,7 +26,7 @@ export interface INEScanResult {
 }
 
 export const scanINEImage = async (
-  file: File | { uri: string; name: string; type: string }
+  file: File | { uri: string; name: string; type: string },
 ): Promise<string | null> => {
   // Obtener la API key desde variables de entorno
   const ocrApiKey =
@@ -37,7 +37,7 @@ export const scanINEImage = async (
 
   if (!ocrApiKey) {
     throw new Error(
-      "OCR Space API Key no configurada. Por favor configura EXPO_PUBLIC_OCR_SPACE_API_KEY en tu archivo .env"
+      "OCR Space API Key no configurada. Por favor configura EXPO_PUBLIC_OCR_SPACE_API_KEY en tu archivo .env",
     );
   }
 
@@ -59,27 +59,37 @@ export const scanINEImage = async (
   }
 
   try {
-    const response = await fetch("https://apipro1.ocr.space/parse/image", {
+    const response = await fetch("https://api.ocr.space/parse/image", {
       method: "POST",
       body: formData,
     });
 
+    if (!response.ok) {
+      throw new Error(
+        `El servicio OCR rechazó la imagen (${response.status}). Intenta nuevamente.`,
+      );
+    }
+
     const result = await response.json();
 
     if (result.IsErroredOnProcessing) {
-      return null;
+      const detail = Array.isArray(result.ErrorMessage)
+        ? result.ErrorMessage.join(" ")
+        : result.ErrorMessage;
+      throw new Error(detail || "El servicio OCR no pudo procesar la imagen");
     }
 
     const parsedText = result.ParsedResults?.[0]?.ParsedText || null;
     return parsedText;
-  } catch {
-    return null;
+  } catch (cause) {
+    if (cause instanceof Error) throw cause;
+    throw new Error("No fue posible conectar con el servicio OCR");
   }
 };
 
 export const compressImage = async (
   file: File | { uri: string; name: string; type: string },
-  maxSizeInKB = 800
+  maxSizeInKB = 800,
 ): Promise<File | { uri: string; name: string; type: string }> => {
   try {
     if (Platform.OS === "web") {
@@ -130,7 +140,7 @@ export const compressImage = async (
                 }
               },
               "image/jpeg",
-              0.7 // Calidad reducida
+              0.7, // Calidad reducida
             );
           } catch {
             reject(new Error("Error al comprimir imagen"));
@@ -152,7 +162,7 @@ export const compressImage = async (
         {
           compress: 0.7,
           format: ImageManipulator.SaveFormat.JPEG,
-        }
+        },
       );
 
       return {
@@ -207,7 +217,7 @@ const extractCURPFromLines = (lines: string[]): string => {
 };
 
 export const processINE = async (
-  file: File | { uri: string; name: string; type: string }
+  file: File | { uri: string; name: string; type: string },
 ): Promise<INEScanResult | null> => {
   try {
     const compressedFile = await compressImage(file, 800);
@@ -222,21 +232,38 @@ export const processINE = async (
       .map((line) => line.trim())
       .filter(Boolean);
 
-    const indexNombre = lines.findIndex((line) => line === "NOMBRE");
+    const indexNombre = lines.findIndex(
+      (line) =>
+        line.toUpperCase().includes("NOMBRE") ||
+        line.toUpperCase().includes("N0MBRE"),
+    );
 
-    const apellidoPaterno = lines[indexNombre + 1] || "";
-    const apellidoMaterno = lines[indexNombre + 2] || "";
-    const nombre = lines[indexNombre + 3] || "";
+    let apellidoPaterno = "";
+    let apellidoMaterno = "";
+    let nombre = "";
 
-    const direccionIndex = lines.findIndex((line) => line === "DOMICILIO");
+    if (indexNombre !== -1) {
+      apellidoPaterno = lines[indexNombre + 1] || "";
+      apellidoMaterno = lines[indexNombre + 2] || "";
+      nombre = lines[indexNombre + 3] || "";
+    }
 
-    const direccion = [
-      lines[direccionIndex + 1],
-      lines[direccionIndex + 2],
-      lines[direccionIndex + 3],
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const direccionIndex = lines.findIndex(
+      (line) =>
+        line.toUpperCase().includes("DOMICILIO") ||
+        line.toUpperCase().includes("DOMICIL"),
+    );
+
+    let direccion = "";
+    if (direccionIndex !== -1) {
+      direccion = [
+        lines[direccionIndex + 1],
+        lines[direccionIndex + 2],
+        lines[direccionIndex + 3],
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
 
     const curp = extractCURPFromLines(lines);
 
@@ -244,7 +271,9 @@ export const processINE = async (
       lines.find((line) => /^\d{2}\/\d{2}\/\d{4}$/.test(line)) ?? "";
 
     const sexoLine =
-      lines.find((line) => line.startsWith("SEXO"))?.toUpperCase() || "";
+      lines
+        .find((line) => line.toUpperCase().startsWith("SEXO"))
+        ?.toUpperCase() || "";
 
     const sexo = sexoLine.includes("H")
       ? "masculino"
@@ -264,7 +293,8 @@ export const processINE = async (
     };
 
     return result;
-  } catch {
+  } catch (cause) {
+    if (cause instanceof Error) throw cause;
     throw new Error("Error procesando INE");
   }
 };

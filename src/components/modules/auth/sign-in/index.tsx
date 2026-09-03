@@ -12,8 +12,8 @@ import { Label } from "@/src/components/ui/label";
 import { Text } from "@/src/components/ui/text";
 import { useSignInForm } from "@/src/forms/useSignInForm";
 import { Monicon } from "@monicon/native";
-import { AlertCircleIcon } from "lucide-react-native";
 import { Link } from "expo-router";
+import { AlertCircleIcon } from "lucide-react-native";
 import { Controller } from "react-hook-form";
 import {
   Image,

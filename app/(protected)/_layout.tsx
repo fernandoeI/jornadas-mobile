@@ -43,6 +43,12 @@ export default function ProtectedLayout() {
           name="gestionar-cuenta"
           options={{ headerShown: false }}
         />
+        {/* NUEVA RUTA */}
+        <Stack.Screen
+          name="new-request"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </DrawerProvider>
   );

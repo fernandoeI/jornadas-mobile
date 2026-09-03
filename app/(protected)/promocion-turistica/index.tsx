@@ -42,7 +42,7 @@ export default function PromocionTuristicaScreen() {
 
   // Redirigir al home si no tiene el label requerido
   if (!hasPromocionTuristicaLabel) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/home" />;
   }
   const {
     control,

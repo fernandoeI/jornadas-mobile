@@ -1,0 +1,274 @@
+import { FormHeader } from "@/src/components/common";
+import {
+  DynamicGlobalForm,
+  INEAutoFill,
+  isDynamicFormComplete,
+  isSpecificFormComplete,
+  RequestIntro,
+  RequestSuccess,
+  SpecificRequestData,
+  SpecificRequestForm,
+} from "@/src/components/modules/new-request";
+import { Button } from "@/src/components/ui/button";
+import { Text } from "@/src/components/ui/text";
+import { useCatalogService, useGlobalForm } from "@/src/hooks/useCatalog";
+import { identityApi } from "@/src/services/identityApi";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const asText = (value: string | string[] | undefined, fallback: string) =>
+  Array.isArray(value) ? (value[0] ?? fallback) : (value ?? fallback);
+
+export default function NewRequest() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{
+    serviceId?: string;
+    title?: string;
+    subtitle?: string;
+    active?: string;
+    eventId?: string;
+  }>();
+  const serviceId = asText(params.serviceId, "unknown");
+  const eventId = asText(params.eventId, "");
+  const title = asText(params.title, "Trámite seleccionado");
+  const subtitle = asText(
+    params.subtitle,
+    "Completa tu solicitud paso a paso.",
+  );
+  const active = asText(params.active, "true") === "true";
+  const { data: service } = useCatalogService(serviceId);
+  const { data: globalForm, isLoading: loadingGlobal } = useGlobalForm();
+  const [stage, setStage] = useState<
+    "intro" | "global" | "specific" | "review" | "success"
+  >("intro");
+  const [globalData, setGlobalData] = useState<Record<string, string>>({});
+  const [specificData, setSpecificData] = useState<SpecificRequestData>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [folio, setFolio] = useState<string>();
+
+  const globalFields = globalForm?.fields || [];
+  const usesGlobalForm = service?.usesGlobalForm ?? true;
+  const specificFields = service?.formConfig?.fields || [];
+  const globalComplete = isDynamicFormComplete(globalFields, globalData);
+  const specificComplete = specificFields.length
+    ? specificFields
+        .filter((field) => field.required !== false)
+        .every((field) => Boolean(specificData[field.key]?.trim()))
+    : isSpecificFormComplete(serviceId, specificData);
+  const copy = useMemo(
+    () => ({
+      intro: [
+        title,
+        "Conoce los requisitos antes de iniciar.",
+        "mdi:information-outline",
+      ],
+      global: [
+        "Formulario general",
+        "Datos requeridos en todos los trámites.",
+        "mdi:account-edit",
+      ],
+      specific: [
+        `Datos de ${title}`,
+        "Información particular del trámite.",
+        "mdi:file-document-edit",
+      ],
+      review: [
+        "Confirmación",
+        "Revisa la información antes de enviarla.",
+        "mdi:check-circle",
+      ],
+      success: [
+        "Solicitud enviada",
+        "Tu solicitud quedó registrada.",
+        "mdi:check-circle",
+      ],
+    }),
+    [title],
+  );
+
+  const back = () => {
+    if (stage === "intro") return router.back();
+    if (stage === "global") return setStage("intro");
+    if (stage === "specific")
+      return setStage(usesGlobalForm ? "global" : "intro");
+    if (stage === "review") return setStage("specific");
+  };
+  const next = () => {
+    if (stage === "intro" && active)
+      setStage(usesGlobalForm ? "global" : "specific");
+    else if (stage === "global" && globalComplete) setStage("specific");
+    else if (stage === "specific" && specificComplete) setStage("review");
+  };
+  const submit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const result = await identityApi.submitRequest(
+        serviceId,
+        globalData,
+        specificData,
+        eventId || undefined,
+      );
+      setFolio(result.programFolio || result.eventFolio || result.folio);
+      setStage("success");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No fue posible registrar la solicitud",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  const reset = () => {
+    setGlobalData({});
+    setSpecificData({});
+    setError(null);
+    setFolio(undefined);
+    setStage("intro");
+  };
+  const step =
+    stage === "intro"
+      ? 0
+      : stage === "global"
+        ? 1
+        : stage === "specific"
+          ? 2
+          : 3;
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1"
+    >
+      <View className="flex-1 bg-background">
+        <FormHeader
+          step={step}
+          totalSteps={4}
+          title={copy[stage][0]}
+          description={copy[stage][1]}
+          icon={copy[stage][2]}
+          directionName="Nueva solicitud"
+          backRoute="/home"
+        />
+        <ScrollView
+          className="flex-1 px-6"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 104 }}
+        >
+          <View className="mx-auto w-full max-w-[672px] gap-6">
+            {stage === "success" ? (
+              <RequestSuccess
+                title={title}
+                folio={folio}
+                onClose={() => router.replace("/home" as any)}
+                onNew={reset}
+              />
+            ) : stage === "intro" ? (
+              <RequestIntro
+                serviceId={serviceId}
+                title={title}
+                subtitle={subtitle}
+                active={active}
+                onCancel={back}
+                onStart={next}
+                showButtons={false}
+              />
+            ) : stage === "global" ? (
+              loadingGlobal ? (
+                <ActivityIndicator color="#981646" />
+              ) : (
+                <View className="gap-5">
+                  <INEAutoFill
+                    fields={globalFields}
+                    values={globalData}
+                    onChange={setGlobalData}
+                  />
+                  <DynamicGlobalForm
+                    fields={globalFields}
+                    values={globalData}
+                    onChange={setGlobalData}
+                  />
+                </View>
+              )
+            ) : stage === "specific" ? (
+              <SpecificRequestForm
+                serviceId={serviceId}
+                title={title}
+                values={specificData}
+                onChange={setSpecificData}
+              />
+            ) : (
+              <View className="gap-5 rounded-2xl border border-border bg-card p-5">
+                <Text className="text-xl font-bold">
+                  Resumen de la solicitud
+                </Text>
+                <Text className="font-semibold">Datos generales</Text>
+                {Object.entries(globalData).map(([key, value]) => (
+                  <Text key={key} className="text-muted-foreground">
+                    • {value}
+                  </Text>
+                ))}
+                <Text className="mt-2 font-semibold">Datos del trámite</Text>
+                {Object.entries(specificData).map(([key, value]) => (
+                  <Text key={key} className="text-muted-foreground">
+                    • {value}
+                  </Text>
+                ))}
+                {error ? (
+                  <Text className="text-destructive">{error}</Text>
+                ) : null}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+        {stage !== "success" && (
+          <View
+            className="absolute bottom-0 left-0 right-0 flex-row gap-4 border-t border-border bg-background px-6 pt-4"
+            style={{ paddingBottom: insets.bottom + 8 }}
+          >
+            <Button variant="outline" onPress={back} className="flex-1">
+              <Text>{stage === "intro" ? "Regresar" : "Anterior"}</Text>
+            </Button>
+            {stage === "review" ? (
+              <Button
+                onPress={submit}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : null}
+                <Text>{isSubmitting ? "Enviando..." : "Enviar solicitud"}</Text>
+              </Button>
+            ) : (
+              <Button
+                onPress={next}
+                disabled={
+                  (stage === "intro" && !active) ||
+                  (stage === "global" && !globalComplete) ||
+                  (stage === "specific" && !specificComplete)
+                }
+                className="flex-1"
+              >
+                <Text>
+                  {stage === "intro" ? "Iniciar trámite" : "Siguiente"}
+                </Text>
+              </Button>
+            )}
+          </View>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}

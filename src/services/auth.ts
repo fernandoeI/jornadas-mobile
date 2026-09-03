@@ -1,6 +1,12 @@
 import { isCorsError, sifFetch } from "@/src/utils/sifApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getAppwriteAccount, ID, Models } from "./appwrite";
+import {
+  APPWRITE_CONFIG,
+  getAppwriteAccount,
+  getAppwriteDatabases,
+  ID,
+  Models,
+} from "./appwrite";
 
 export interface UserData {
   id: string;
@@ -8,7 +14,8 @@ export interface UserData {
   nombre: string;
   primerApellido: string;
   segundoApellido?: string;
-  role: string;
+  role: "super_admin" | "secretaria" | "enlace" | "gestor" | "capturista" | "solicitante";
+  unidadAdministrativaId?: string;
   labels?: string[]; // Labels de Appwrite
   profilePhoto?: string;
   profilePhotoFileId?: string; // ID del archivo en Appwrite Storage
@@ -29,7 +36,7 @@ const SIF_BASE_URL = "https://sif.tabasco.gob.mx";
 const SIF_REFRESH_ENDPOINT = `${SIF_BASE_URL}/user/api/token/refresh/`;
 
 const mapAppwriteUserToUser = (
-  appwriteUser: Models.User<Models.Preferences>
+  appwriteUser: Models.User<Models.Preferences>,
 ): UserData => {
   const nameParts = appwriteUser.name?.split(" ") || [];
   const nombre = nameParts[0] || "";
@@ -47,14 +54,23 @@ const mapAppwriteUserToUser = (
   // Obtener los labels del usuario (Appwrite labels)
   const labels = (appwriteUser.labels as string[]) || [];
 
-  // Determinar el role basado en los labels o usar "user" por defecto
-  const role = labels.length > 0 ? labels[0] : "user";
+  const role: UserData["role"] = labels.includes("superadmin")
+    ? "super_admin"
+    : labels.includes("secretaria")
+      ? "secretaria"
+    : labels.includes("gestor")
+      ? "gestor"
+      : labels.includes("enlace")
+        ? "enlace"
+        : labels.includes("capturista")
+          ? "capturista"
+          : "solicitante";
 
   console.log("mapAppwriteUserToUser - prefs:", appwriteUser.prefs);
   console.log("mapAppwriteUserToUser - profilePhoto:", profilePhoto);
   console.log(
     "mapAppwriteUserToUser - profilePhotoFileId:",
-    profilePhotoFileId
+    profilePhotoFileId,
   );
   console.log("mapAppwriteUserToUser - labels:", labels);
 
@@ -69,6 +85,24 @@ const mapAppwriteUserToUser = (
     profilePhoto,
     profilePhotoFileId,
   };
+};
+
+const enrichUserWithProfile = async (userData: UserData): Promise<UserData> => {
+  try {
+    const profile: any = await getAppwriteDatabases().getDocument(
+      APPWRITE_CONFIG.DATABASE_ID,
+      APPWRITE_CONFIG.COLLECTIONS.USUARIOS_PERFIL,
+      userData.id,
+    );
+    return {
+      ...userData,
+      nombre: profile.nombre || userData.nombre,
+      role: profile.rolSistema || profile.rol || userData.role,
+      unidadAdministrativaId: profile.unidadAdministrativaId || undefined,
+    };
+  } catch {
+    return userData;
+  }
 };
 
 const setUser = async (user: UserData): Promise<void> => {
@@ -91,7 +125,11 @@ const mapSifUserToUser = (sifUser: any): UserData => {
     nombre,
     primerApellido,
     segundoApellido,
-    role: sifUser.is_superuser ? "admin" : sifUser.is_staff ? "staff" : "user",
+    role: sifUser.is_superuser
+      ? "super_admin"
+      : sifUser.is_staff
+        ? "enlace"
+        : "solicitante",
   };
 };
 
@@ -99,7 +137,7 @@ const SIF_LOGIN_ENDPOINT = `${SIF_BASE_URL}/user/api/login/`;
 
 const loginSIF = async (
   email: string,
-  password: string
+  password: string,
 ): Promise<{ access: string; refresh: string; user: any }> => {
   try {
     const response = await sifFetch(SIF_LOGIN_ENDPOINT, {
@@ -113,7 +151,7 @@ const loginSIF = async (
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.message || `Error en login SIF: ${response.status}`
+        errorData.message || `Error en login SIF: ${response.status}`,
       );
     }
 
@@ -137,7 +175,7 @@ const loginSIF = async (
 
 const setSifTokens = async (
   accessToken: string,
-  refreshToken: string
+  refreshToken: string,
 ): Promise<void> => {
   try {
     await AsyncStorage.setItem(SIF_TOKEN_KEY, accessToken);
@@ -251,7 +289,7 @@ export const getValidSifAccessToken = async (): Promise<string | null> => {
 
 export const login = async (
   email: string,
-  password: string
+  password: string,
 ): Promise<LoginResponse> => {
   // Login con Appwrite (habilitado)
   let userData: UserData | null = null;
@@ -263,7 +301,7 @@ export const login = async (
     const account = getAppwriteAccount();
     await account.createEmailPasswordSession(email, password);
     const user = await account.get();
-    userData = mapAppwriteUserToUser(user);
+    userData = await enrichUserWithProfile(mapAppwriteUserToUser(user));
     accessToken = user.$id;
   } catch (appwriteError) {
     console.error("Error en login Appwrite:", appwriteError);
@@ -306,7 +344,7 @@ export const register = async (
   password: string,
   nombre: string = "",
   primerApellido: string = "",
-  segundoApellido?: string
+  segundoApellido?: string,
 ): Promise<LoginResponse> => {
   let accountCreated = false;
   try {
@@ -335,7 +373,7 @@ export const register = async (
     } catch (sessionError: any) {
       console.error(
         "⚠️ Error al crear sesión (pero la cuenta fue creada):",
-        sessionError
+        sessionError,
       );
       console.error("Detalles del error de sesión:", {
         message: sessionError?.message,
@@ -350,7 +388,7 @@ export const register = async (
         sessionError?.message?.includes("failed")
       ) {
         console.log(
-          "🔄 Error de red detectado, reintentando después de 1 segundo..."
+          "🔄 Error de red detectado, reintentando después de 1 segundo...",
         );
         await new Promise((resolve) => setTimeout(resolve, 1000));
         try {
@@ -361,7 +399,7 @@ export const register = async (
           console.error("❌ Error persistente al crear sesión:", retryError);
           // Si la cuenta se creó pero la sesión falla, lanzar error específico
           throw new Error(
-            "REGISTRO_EXITOSO_SIN_SESION: La cuenta fue creada exitosamente, pero no se pudo iniciar sesión automáticamente debido a un problema de conexión. Por favor intenta iniciar sesión manualmente."
+            "REGISTRO_EXITOSO_SIN_SESION: La cuenta fue creada exitosamente, pero no se pudo iniciar sesión automáticamente debido a un problema de conexión. Por favor intenta iniciar sesión manualmente.",
           );
         }
       } else {
@@ -379,7 +417,7 @@ export const register = async (
         nombre: nameParts[0] || defaultName,
         primerApellido: nameParts[1] || "",
         segundoApellido: nameParts.slice(2).join(" ") || undefined,
-        role: "user",
+        role: "solicitante",
       };
       return {
         access_token: "pending",
@@ -402,7 +440,7 @@ export const register = async (
         nombre: nameParts[0] || defaultName,
         primerApellido: nameParts[1] || "",
         segundoApellido: nameParts.slice(2).join(" ") || undefined,
-        role: "user",
+        role: "solicitante",
       };
       await setUser(userData);
       return {
@@ -423,7 +461,7 @@ export const register = async (
       nombre: userNombre,
       primerApellido: userPrimerApellido,
       segundoApellido: userSegundoApellido,
-      role: "user",
+      role: "solicitante",
     };
 
     await setUser(userData);
@@ -446,7 +484,7 @@ export const register = async (
     if (accountCreated) {
       // Crear un error especial que indique que el registro fue exitoso
       const successError = new Error(
-        "REGISTRO_EXITOSO_SIN_SESION: La cuenta fue creada exitosamente, pero hubo un problema al iniciar sesión automáticamente. Por favor intenta iniciar sesión manualmente."
+        "REGISTRO_EXITOSO_SIN_SESION: La cuenta fue creada exitosamente, pero hubo un problema al iniciar sesión automáticamente. Por favor intenta iniciar sesión manualmente.",
       );
       (successError as any).isRegistrationSuccess = true;
       throw successError;
@@ -475,13 +513,13 @@ export const getUser = async (): Promise<UserData | null> => {
   try {
     const account = getAppwriteAccount();
     const user = await account.get();
-    const userData = mapAppwriteUserToUser(user);
+    const userData = await enrichUserWithProfile(mapAppwriteUserToUser(user));
     await setUser(userData); // Guardar localmente también
     return userData;
   } catch (appwriteError) {
     console.log(
       "Error obteniendo usuario de Appwrite, intentando local:",
-      appwriteError
+      appwriteError,
     );
     // Fallback a datos locales si Appwrite falla
     try {
@@ -583,13 +621,13 @@ export const forgotPassword = async (email: string): Promise<void> => {
       error?.type === "general_smtp_disabled"
     ) {
       throw new Error(
-        "El servicio de correo electrónico no está disponible. Por favor verifica la configuración SMTP en el servidor o contacta al administrador."
+        "El servicio de correo electrónico no está disponible. Por favor verifica la configuración SMTP en el servidor o contacta al administrador.",
       );
     }
 
     throw new Error(
       errorMessage ||
-        "Error al enviar el correo de recuperación. Por favor intenta nuevamente."
+        "Error al enviar el correo de recuperación. Por favor intenta nuevamente.",
     );
   }
 };
@@ -597,7 +635,7 @@ export const forgotPassword = async (email: string): Promise<void> => {
 export const resetPassword = async (
   userId: string,
   secret: string,
-  password: string
+  password: string,
 ): Promise<void> => {
   try {
     const account = getAppwriteAccount();
@@ -630,7 +668,7 @@ export const updateName = async (name: string): Promise<void> => {
 
 export const updatePassword = async (
   oldPassword: string,
-  newPassword: string
+  newPassword: string,
 ): Promise<void> => {
   try {
     const account = getAppwriteAccount();
@@ -647,7 +685,7 @@ export const updatePassword = async (
 
 export const updateProfilePhoto = async (
   photoUrl: string,
-  fileId?: string
+  fileId?: string,
 ): Promise<UserData> => {
   try {
     const account = getAppwriteAccount();
@@ -668,11 +706,11 @@ export const updateProfilePhoto = async (
     const userData = mapAppwriteUserToUser(user);
     console.log(
       "updateProfilePhoto - userData.profilePhoto:",
-      userData.profilePhoto
+      userData.profilePhoto,
     );
     console.log(
       "updateProfilePhoto - userData.profilePhotoFileId:",
-      userData.profilePhotoFileId
+      userData.profilePhotoFileId,
     );
 
     // Actualizar el estado local

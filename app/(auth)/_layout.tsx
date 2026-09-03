@@ -2,14 +2,24 @@ import { useAuth } from "@/src/providers/AuthProvider";
 import { Redirect, Stack } from "expo-router";
 
 export default function AuthLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return null;
   }
 
   if (isAuthenticated) {
-    return <Redirect href="/(protected)/(tabs)/home" />;
+    return (
+      <Redirect
+        href={
+          user?.role === "super_admin" ||
+          user?.role === "gestor" ||
+          user?.role === "secretaria"
+            ? "/(protected)/admin"
+            : "/(protected)/(tabs)/home"
+        }
+      />
+    );
   }
 
   return (

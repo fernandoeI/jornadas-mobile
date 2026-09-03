@@ -114,14 +114,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...(Platform.OS === "web"
       ? {
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-        }
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+      }
       : {
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3,
-        }),
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+      }),
   },
   container: {
     borderRadius: 12,
@@ -132,13 +132,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...(Platform.OS === "web"
       ? {
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-        }
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+      }
       : {
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3,
-        }),
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+      }),
   },
 });
