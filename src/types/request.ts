@@ -13,4 +13,14 @@ export interface ServiceRequest {
   eventId?: string;
   eventFolio?: string;
   programFolio?: string;
+  priorityOnReopening?: boolean;
+  finalResult?: string;
+  discontinuationReason?: string;
+  receivedBenefit?: boolean;
+  benefitDetail?: string;
+  reassignmentRequired?: boolean;
+  reassignmentReason?: string;
+  previousUnitId?: string;
+  applicantData?: Record<string, unknown>;
+  requestData?: Record<string, unknown>;
 }

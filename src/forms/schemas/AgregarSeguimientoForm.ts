@@ -7,7 +7,7 @@ export interface AgregarSeguimientoFormData {
   primerApellido: string;
   segundoApellido: string;
   direccion: string;
-  genero: "masculino" | "femenino" | "no binaria";
+  genero: "Masculino" | "Femenino" | "No Binario";
   edad: string;
   curp: string;
   ineFile?: File | { uri: string; name: string; type: string };
@@ -38,7 +38,7 @@ export const agregarSeguimientoValidationSchema = Yup.object().shape({
   segundoApellido: Yup.string().required("El segundo apellido es requerido"),
   direccion: Yup.string().required("La dirección es requerida"),
   genero: Yup.string()
-    .oneOf(["masculino", "femenino", "no binaria"], "Género inválido")
+    .oneOf(["Masculino", "Femenino", "No Binario"], "Género inválido")
     .required("El género es requerido"),
   edad: Yup.string().required("La edad es requerida"),
   curp: Yup.string()

@@ -2,7 +2,6 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import {
   APPWRITE_CONFIG,
-  getAppwriteClient,
   getAppwriteStorage,
   ID,
 } from "./appwrite";
@@ -18,9 +17,11 @@ export interface FileUploadResponse {
 
 class FilesService {
   private getBucketId(
-    bucketType: "images" | "ine_images" | "catalog_images" = "images",
+    bucketType: "images" | "ine_images" | "catalog_images" | "request_documents" = "images",
   ): string {
-    return bucketType === "catalog_images"
+    return bucketType === "request_documents"
+      ? APPWRITE_CONFIG.STORAGE_BUCKETS.REQUEST_DOCUMENTS
+      : bucketType === "catalog_images"
       ? APPWRITE_CONFIG.STORAGE_BUCKETS.CATALOG_IMAGES
       : bucketType === "ine_images"
         ? APPWRITE_CONFIG.STORAGE_BUCKETS.INE_IMAGES
@@ -29,7 +30,7 @@ class FilesService {
 
   async uploadImage(
     file: File | { uri: string; name: string; type: string },
-    bucketType: "images" | "ine_images" | "catalog_images" = "images",
+    bucketType: "images" | "ine_images" | "catalog_images" | "request_documents" = "images",
   ): Promise<FileUploadResponse> {
     try {
       // Verificar autenticación antes de intentar subir
@@ -179,7 +180,7 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
 
   async uploadMultipleImages(
     files: (File | { uri: string; name: string; type: string })[],
-    bucketType: "images" | "ine_images" | "catalog_images" = "images",
+    bucketType: "images" | "ine_images" | "catalog_images" | "request_documents" = "images",
   ): Promise<FileUploadResponse[]> {
     try {
       const uploadPromises = files.map((file) =>
@@ -194,7 +195,7 @@ Formato archivo: ${fileData instanceof File ? "File" : "Object con URI"}`;
 
   getImageUrl(
     fileId: string,
-    bucketType: "images" | "ine_images" | "catalog_images" = "images",
+    bucketType: "images" | "ine_images" | "catalog_images" | "request_documents" = "images",
   ): string {
     const bucketId = this.getBucketId(bucketType);
 

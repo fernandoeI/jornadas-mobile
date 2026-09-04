@@ -10,8 +10,8 @@ export const INE_FIELDS = {
 } as const;
 
 export const GENERO_OPTIONS = [
-  { label: "Masculino", value: "masculino" },
-  { label: "Femenino", value: "femenino" },
-  { label: "No binaria", value: "no binaria" },
+  { label: "Masculino", value: "Masculino" },
+  { label: "Femenino", value: "Femenino" },
+  { label: "No binaria", value: "No Binario" },
 ] as const;
 

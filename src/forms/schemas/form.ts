@@ -40,7 +40,7 @@ export interface JornadaFormData {
   primerApellido: string;
   segundoApellido: string;
   direccion: string;
-  genero: "masculino" | "femenino" | "no binaria";
+  genero: "Masculino" | "Femenino" | "No Binario";
   edad: string;
   curp: string;
 

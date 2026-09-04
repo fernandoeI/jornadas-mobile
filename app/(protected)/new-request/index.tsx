@@ -55,6 +55,8 @@ export default function NewRequest() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<string>();
+  const [priorityOnReopening, setPriorityOnReopening] = useState(false);
+  const [emailMessage, setEmailMessage] = useState<string>();
 
   const globalFields = globalForm?.fields || [];
   const usesGlobalForm = service?.usesGlobalForm ?? true;
@@ -104,7 +106,7 @@ export default function NewRequest() {
     if (stage === "review") return setStage("specific");
   };
   const next = () => {
-    if (stage === "intro" && active)
+    if (stage === "intro")
       setStage(usesGlobalForm ? "global" : "specific");
     else if (stage === "global" && globalComplete) setStage("specific");
     else if (stage === "specific" && specificComplete) setStage("review");
@@ -118,8 +120,16 @@ export default function NewRequest() {
         globalData,
         specificData,
         eventId || undefined,
+        (() => {
+          const field = globalFields.find((item) =>
+            /correo|email/i.test(`${item.key} ${item.label}`),
+          );
+          return field ? globalData[field.key]?.trim() : undefined;
+        })(),
       );
       setFolio(result.programFolio || result.eventFolio || result.folio);
+      setPriorityOnReopening(Boolean(result.priorityOnReopening));
+      setEmailMessage(result.emailMessage);
       setStage("success");
     } catch (cause) {
       setError(
@@ -136,6 +146,8 @@ export default function NewRequest() {
     setSpecificData({});
     setError(null);
     setFolio(undefined);
+    setPriorityOnReopening(false);
+    setEmailMessage(undefined);
     setStage("intro");
   };
   const step =
@@ -171,6 +183,8 @@ export default function NewRequest() {
               <RequestSuccess
                 title={title}
                 folio={folio}
+                priorityOnReopening={priorityOnReopening}
+                emailMessage={emailMessage}
                 onClose={() => router.replace("/home" as any)}
                 onNew={reset}
               />
@@ -189,11 +203,13 @@ export default function NewRequest() {
                 <ActivityIndicator color="#981646" />
               ) : (
                 <View className="gap-5">
-                  <INEAutoFill
-                    fields={globalFields}
-                    values={globalData}
-                    onChange={setGlobalData}
-                  />
+                  {globalForm?.enableINEAnalysis ? (
+                    <INEAutoFill
+                      fields={globalFields}
+                      values={globalData}
+                      onChange={setGlobalData}
+                    />
+                  ) : null}
                   <DynamicGlobalForm
                     fields={globalFields}
                     values={globalData}
@@ -255,14 +271,13 @@ export default function NewRequest() {
               <Button
                 onPress={next}
                 disabled={
-                  (stage === "intro" && !active) ||
                   (stage === "global" && !globalComplete) ||
                   (stage === "specific" && !specificComplete)
                 }
                 className="flex-1"
               >
                 <Text>
-                  {stage === "intro" ? "Iniciar trámite" : "Siguiente"}
+                  {stage === "intro" ? (active ? "Iniciar trámite" : "Registrar con prioridad") : "Siguiente"}
                 </Text>
               </Button>
             )}

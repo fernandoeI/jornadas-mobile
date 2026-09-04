@@ -5,7 +5,9 @@
   "scripts": {
     "appwrite:provision": "node scripts/appwrite/provision.mjs",
     "appwrite:bootstrap-admin": "node scripts/appwrite/bootstrap-admin.mjs",
+    "appwrite:reset-data": "node scripts/appwrite/reset-data.mjs",
     "appwrite:deploy-function": "node scripts/appwrite/deploy-function.mjs",
+    "appwrite:deploy-site": "node scripts/appwrite/deploy-site.mjs",
     "appwrite:grant-secretary": "node scripts/appwrite/grant-secretary-access.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -94,6 +96,7 @@
     "expo-blur": "~15.0.8",
     "expo-camera": "^17.0.10",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",

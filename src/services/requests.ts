@@ -2,7 +2,17 @@ import { Query } from "react-native-appwrite";
 import { ServiceRequest } from "@/src/types/request";
 import { APPWRITE_CONFIG, getAppwriteDatabases } from "./appwrite";
 
-const mapDoc = (doc: any): ServiceRequest => ({
+const parseData = (value?: string) => {
+  try { return JSON.parse(value || "{}"); } catch { return {}; }
+};
+
+const mapDoc = (doc: any): ServiceRequest => {
+  const applicantData = parseData(doc.datosSolicitante);
+  const requestData = parseData(doc.datosTramite);
+  const tracking = requestData.__seguimiento || {};
+  const visibleRequestData = { ...requestData };
+  delete visibleRequestData.__seguimiento;
+  return ({
   id: doc.$id,
   folio: doc.folio,
   serviceId: doc.tramiteServicioId,
@@ -15,9 +25,46 @@ const mapDoc = (doc: any): ServiceRequest => ({
   eventId: doc.eventoAtencionId,
   eventFolio: doc.folioEvento,
   programFolio: doc.folioPrograma,
-});
+  priorityOnReopening: doc.prioridadReapertura ?? false,
+  finalResult: doc.resultadoFinal ?? tracking.resultadoFinal,
+  discontinuationReason: doc.motivoNoContinuidad ?? tracking.motivoNoContinuidad,
+  receivedBenefit: doc.apoyoRecibido ?? tracking.apoyoRecibido,
+  benefitDetail: doc.detalleBeneficio ?? tracking.detalleBeneficio,
+  reassignmentRequired: doc.requiereReasignacion ?? tracking.requiereReasignacion ?? false,
+  reassignmentReason: doc.motivoReasignacion ?? tracking.motivoReasignacion,
+  previousUnitId: doc.unidadAnteriorId ?? tracking.unidadAnteriorId,
+  applicantData,
+  requestData: visibleRequestData,
+  });
+};
 
 export const requestsService = {
+  async getById(requestId: string): Promise<ServiceRequest> {
+    const document = await getAppwriteDatabases().getDocument(
+      APPWRITE_CONFIG.DATABASE_ID,
+      APPWRITE_CONFIG.COLLECTIONS.SOLICITUDES,
+      requestId,
+    );
+    return mapDoc(document);
+  },
+
+  /** Bandeja operativa limitada explícitamente a una unidad administrativa. */
+  async listByUnit(unitId: string): Promise<ServiceRequest[]> {
+    if (!unitId) throw new Error("El gestor no tiene una unidad administrativa asignada");
+    const result = await getAppwriteDatabases().listDocuments(
+      APPWRITE_CONFIG.DATABASE_ID,
+      APPWRITE_CONFIG.COLLECTIONS.SOLICITUDES,
+      [
+        Query.equal("unidadAdministrativaId", unitId),
+        Query.orderDesc("fechaSolicitud"),
+        Query.limit(100),
+      ],
+    );
+    return result.documents
+      .map(mapDoc)
+      .sort((a, b) => Number(Boolean(b.priorityOnReopening)) - Number(Boolean(a.priorityOnReopening)));
+  },
+
   /** Lista todas las solicitudes accesibles (hasta 100, orden descendente por fecha) */
   async listAccessible(): Promise<ServiceRequest[]> {
     const result = await getAppwriteDatabases().listDocuments(

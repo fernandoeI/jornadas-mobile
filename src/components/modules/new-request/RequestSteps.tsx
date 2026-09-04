@@ -162,7 +162,6 @@ export function RequestIntro({
   serviceId,
   title,
   subtitle,
-  active,
   onCancel,
   onStart,
   showButtons,
@@ -171,19 +170,41 @@ export function RequestIntro({
   const { data: service } = useCatalogService(serviceId);
   const { data: catalogRequirements = [] } = useServiceRequirements(serviceId);
   const requirements = catalogRequirements.length
-    ? catalogRequirements.map((requirement) => requirement.name)
-    : detail.requirements;
+    ? catalogRequirements
+    : detail.requirements.map((name, index) => ({
+        id: `fallback-${index}`,
+        serviceId,
+        name,
+        required: true,
+        order: index + 1,
+      }));
+  const now = Date.now();
+  const isOpen = Boolean(
+    service?.active &&
+      (!service.opensAt || now >= new Date(service.opensAt).getTime()) &&
+      (!service.closesAt || now <= new Date(service.closesAt).getTime()),
+  );
 
   return (
     <View className="gap-5 rounded-2xl border border-border bg-card p-5">
       <View className="gap-2">
         <View className="self-start rounded-full bg-primary/10 px-3 py-1">
           <Text className="text-xs font-semibold text-primary">
-            {active ? "Convocatoria abierta" : "Convocatoria cerrada"}
+            {isOpen ? "Trámite abierto" : "Trámite cerrado"}
           </Text>
         </View>
         <Text className="text-2xl font-bold text-card-foreground">{title}</Text>
         <Text className="text-muted-foreground">{subtitle}</Text>
+      </View>
+
+      <View className="rounded-xl border border-border p-4">
+        <Text className="font-semibold">Periodo de atención</Text>
+        <Text className="mt-1 text-sm text-muted-foreground">
+          {service?.opensAt ? `Apertura: ${new Date(service.opensAt).toLocaleString("es-MX")}` : "Sin fecha de apertura definida"}
+        </Text>
+        <Text className="mt-1 text-sm text-muted-foreground">
+          {service?.closesAt ? `Cierre: ${new Date(service.closesAt).toLocaleString("es-MX")}` : "Sin fecha de cierre definida"}
+        </Text>
       </View>
 
       <View className="flex-row gap-3 rounded-xl bg-muted p-4">
@@ -206,21 +227,27 @@ export function RequestIntro({
       <View className="gap-2">
         <Text className="text-lg font-semibold">Requisitos</Text>
         {requirements.map((requirement) => (
-          <View key={requirement} className="flex-row items-start gap-2">
+          <View
+            key={requirement.id}
+            className="flex-row items-start gap-3 rounded-xl bg-muted/60 p-3"
+          >
             <Monicon name="mdi:check-circle-outline" size={19} />
-            <Text className="flex-1 text-muted-foreground">{requirement}</Text>
+            <Text className="flex-1 text-muted-foreground">
+              {requirement.name}
+            </Text>
           </View>
         ))}
       </View>
 
-      {!active && (
+      {!isOpen && (
         <View className="rounded-xl border border-amber-400 bg-amber-50 p-4">
           <Text className="font-semibold text-amber-900">
-            Este trámite no está recibiendo solicitudes.
+            La convocatoria no está abierta, pero puedes registrar la solicitud.
           </Text>
           <Text className="mt-1 text-amber-800">
-            Próxima apertura estimada:{" "}
-            {detail.opening ?? fallbackDetails.opening}.
+            {service?.opensAt && new Date(service.opensAt).getTime() > now
+              ? `Se marcará como prioritaria para la apertura del ${new Date(service.opensAt).toLocaleDateString("es-MX")}.`
+              : "Se marcará como prioritaria para revisarla cuando el programa vuelva a abrir."}
           </Text>
         </View>
       )}
@@ -230,8 +257,8 @@ export function RequestIntro({
           <Button variant="outline" onPress={onCancel} className="flex-1">
             <Text>Regresar</Text>
           </Button>
-          <Button onPress={onStart} disabled={!active} className="flex-1">
-            <Text>Iniciar trámite</Text>
+          <Button onPress={onStart} className="flex-1">
+            <Text>{isOpen ? "Iniciar trámite" : "Registrar con prioridad"}</Text>
           </Button>
         </View>
       )}
@@ -280,11 +307,15 @@ export function isSpecificFormComplete(
 export function RequestSuccess({
   title,
   folio,
+  priorityOnReopening,
+  emailMessage,
   onClose,
   onNew,
 }: {
   title: string;
   folio?: string;
+  priorityOnReopening?: boolean;
+  emailMessage?: string;
   onClose: () => void;
   onNew: () => void;
 }) {
@@ -301,6 +332,23 @@ export function RequestSuccess({
         <Text className="text-center text-sm font-semibold text-primary">
           Folio: {folio}
         </Text>
+      ) : null}
+      {priorityOnReopening ? (
+        <View className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <Text className="text-center font-semibold text-amber-900">
+            Registro prioritario para la próxima apertura
+          </Text>
+          <Text className="mt-1 text-center text-sm text-amber-800">
+            La unidad responsable podrá identificarlo cuando el programa vuelva a abrir.
+          </Text>
+        </View>
+      ) : null}
+      {emailMessage ? (
+        <View className="rounded-xl bg-muted p-4">
+          <Text className="text-center text-sm text-muted-foreground">
+            {emailMessage}
+          </Text>
+        </View>
       ) : null}
       <View className="mt-2 w-full gap-3">
         <Button onPress={onClose}>

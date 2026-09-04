@@ -45,6 +45,7 @@ export interface ServiceFormField {
     | "select"
     | "multiselect"
     | "boolean"
+    | "file"
     | "textarea";
   placeholder?: string;
   required?: boolean;
@@ -57,6 +58,7 @@ export interface GlobalFormConfiguration {
   version: number;
   active: boolean;
   fields: ServiceFormField[];
+  enableINEAnalysis?: boolean;
 }
 
 export interface AttentionEvent {

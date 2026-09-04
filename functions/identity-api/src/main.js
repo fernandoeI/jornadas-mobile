@@ -42,8 +42,8 @@ const sendRequestConfirmation = async ({
     `Folio de la solicitud: ${folio}`,
     `Trámite o programa: ${service.nombre}`,
     `Unidad responsable: ${unit.nombre}`,
-    `Evento: ${event.nombre}`,
-    `Folio del evento: ${eventFolio}`,
+    `Evento: ${event?.nombre || "Registro fuera de evento"}`,
+    `Folio del evento: ${eventFolio || "No aplica"}`,
     `Fecha de registro: ${requestedAt.toLocaleString("es-MX", { timeZone: "America/Mexico_City" })}`,
     "Estatus: Enviada",
     "",
@@ -193,33 +193,81 @@ export default async ({ req, res, log, error }) => {
     if (!profile?.activo)
       return json(403, { message: "La cuenta no tiene un perfil activo" });
 
+    if (input.action === "saveAdministrativeUnit") {
+      if (!isSuperAdmin || profile.rol !== "super_admin")
+        return json(403, { message: "Acceso exclusivo de superadministración" });
+      const code = String(input.code || "").trim().toUpperCase();
+      const name = String(input.name || "").trim();
+      if (!code || !name)
+        return json(400, { message: "Captura la clave y el nombre de la unidad" });
+
+      if (input.id) {
+        const current = await call(
+          "GET",
+          `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${input.id}`,
+        );
+        const updated = await call(
+          "PATCH",
+          `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${input.id}`,
+          {
+            data: {
+              clave: code,
+              nombre: name,
+              descripcion: String(input.description || "").trim() || null,
+              correoContacto: String(input.contactEmail || "").trim().toLowerCase() || null,
+              activo: input.active !== false,
+            },
+          },
+        );
+        if (current.teamId)
+          await call("PUT", `/teams/${current.teamId}`, { name });
+        return json(200, updated);
+      }
+
+      const teamId = `unidad-${code.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`.slice(0, 36);
+      const team = await call("POST", "/teams", { teamId, name });
+      try {
+        const created = await call(
+          "POST",
+          `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents`,
+          {
+            documentId: "unique()",
+            data: {
+              clave: code,
+              nombre: name,
+              descripcion: String(input.description || "").trim() || null,
+              correoContacto: String(input.contactEmail || "").trim().toLowerCase() || null,
+              teamId: team.$id,
+              activo: input.active !== false,
+            },
+          },
+        );
+        return json(201, created);
+      } catch (cause) {
+        await call("DELETE", `/teams/${team.$id}`);
+        throw cause;
+      }
+    }
+
     if (input.action === "submitRequest") {
-      if (!isSuperAdmin && profile.rolSistema !== "capturista")
+      if (
+        !isSuperAdmin &&
+        !["capturista", "gestor", "enlace", "secretaria"].includes(
+          profile.rolSistema,
+        )
+      )
         return json(403, {
-          message: "Solo un capturista puede generar solicitudes",
-        });
-      if (!input.eventId)
-        return json(400, {
-          message: "Debes seleccionar un evento de atención",
+          message: "Tu perfil no tiene permisos para generar solicitudes",
         });
       const service = await call(
         "GET",
         `/databases/${DATABASE_ID}/collections/tramites_servicios/documents/${input.serviceId}`,
       );
-      if (!service.activo)
-        return json(409, {
-          message: "El trámite no está recibiendo solicitudes",
-        });
       const now = Date.now();
-      if (
-        service.vigenciaInicio &&
-        now < new Date(service.vigenciaInicio).getTime()
-      )
-        return json(409, { message: "El trámite todavía no está abierto" });
-      if (service.vigenciaFin && now > new Date(service.vigenciaFin).getTime())
-        return json(409, {
-          message: "El periodo de recepción de este trámite finalizó",
-        });
+      const priorityOnReopening =
+        !service.activo ||
+        (service.vigenciaInicio && now < new Date(service.vigenciaInicio).getTime()) ||
+        (service.vigenciaFin && now > new Date(service.vigenciaFin).getTime());
       const unit = await call(
         "GET",
         `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${service.unidadAdministrativaId}`,
@@ -231,11 +279,30 @@ export default async ({ req, res, log, error }) => {
           "GET",
           `/databases/${DATABASE_ID}/collections/eventos_atencion/documents/${input.eventId}`,
         );
-        if (!event.activo)
+        if (
+          !event.activo ||
+          now < new Date(event.fechaInicio).getTime() ||
+          now > new Date(event.fechaFin).getTime()
+        )
           return json(409, {
             message: "El evento de atención ya no está activo",
           });
+      } else {
+        const result = await call(
+          "GET",
+          `/databases/${DATABASE_ID}/collections/eventos_atencion/documents?total=false&queries[]=${encodeURIComponent(JSON.stringify({ method: "limit", values: [100] }))}`,
+        );
+        event = (result.documents || []).find(
+          (item) =>
+            item.activo &&
+            now >= new Date(item.fechaInicio).getTime() &&
+            now <= new Date(item.fechaFin).getTime(),
+        );
       }
+      if (!event)
+        return json(409, {
+          message: "Se requiere seleccionar un evento de atención activo para registrar la solicitud",
+        });
       const eventFolio = event
         ? event.prefijoFolio || event.claveMunicipio
         : undefined;
@@ -250,6 +317,8 @@ export default async ({ req, res, log, error }) => {
         `read(\"label:superadmin\")`,
         `update(\"label:superadmin\")`,
         `read(\"label:secretaria\")`,
+        `read(\"label:enlace\")`,
+        `update(\"label:enlace\")`,
       ];
       const request = await call(
         "POST",
@@ -266,10 +335,13 @@ export default async ({ req, res, log, error }) => {
             datosSolicitante: JSON.stringify(input.applicantData || {}),
             datosTramite: JSON.stringify(input.requestData || {}),
             fechaSolicitud: stamp.toISOString(),
-            ...(event
-              ? { eventoAtencionId: event.$id, folioEvento: eventFolio }
-              : {}),
+            eventoAtencionId: event.$id,
+            folioEvento: eventFolio,
             ...(programFolio ? { folioPrograma: programFolio } : {}),
+            prioridadReapertura: Boolean(priorityOnReopening),
+            ...(priorityOnReopening
+              ? { observaciones: "Registro prioritario para la proxima apertura" }
+              : {}),
           },
         },
       );
@@ -288,7 +360,10 @@ export default async ({ req, res, log, error }) => {
           },
         },
       );
-      const recipient = findApplicantEmail(input.applicantData);
+      const suppliedRecipient = String(input.recipientEmail || "").trim().toLowerCase();
+      const recipient = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(suppliedRecipient)
+        ? suppliedRecipient
+        : findApplicantEmail(input.applicantData);
       let emailResult = {
         sent: false,
         reason: recipient
@@ -320,11 +395,241 @@ export default async ({ req, res, log, error }) => {
         eventFolio,
         programFolio,
         status: request.estatus,
+        priorityOnReopening: Boolean(priorityOnReopening),
         emailSent: emailResult.sent,
         emailMessage: emailResult.sent
           ? "Confirmación enviada por correo"
           : emailResult.reason,
       });
+    }
+
+    if (input.action === "finishEvent") {
+      if (!isSuperAdmin || profile.rol !== "super_admin")
+        return json(403, { message: "Acceso exclusivo de superadministracion" });
+      const updated = await call(
+        "PATCH",
+        `/databases/${DATABASE_ID}/collections/eventos_atencion/documents/${input.eventId}`,
+        { data: { activo: false, fechaFin: new Date().toISOString() } },
+      );
+      return json(200, updated);
+    }
+
+    if (input.action === "reportingStaff") {
+      if (
+        !isSuperAdmin &&
+        !["secretaria", "gestor", "enlace"].includes(profile.rolSistema)
+      )
+        return json(403, { message: "No tienes permisos para consultar reportes" });
+      const result = await call(
+        "GET",
+        `/databases/${DATABASE_ID}/collections/usuarios_perfil/documents?total=false&queries[]=${encodeURIComponent(JSON.stringify({ method: "limit", values: [500] }))}`,
+      );
+      return json(200, {
+        staff: (result.documents || []).map((item) => ({
+          id: item.userId || item.$id,
+          name: item.nombre,
+          role: item.rolSistema || item.rol,
+          unitId: item.unidadAdministrativaId,
+        })),
+      });
+    }
+
+    if (input.action === "requestReassignment") {
+      if (
+        !isSuperAdmin &&
+        profile.rol !== "enlace" &&
+        profile.rolSistema !== "gestor"
+      )
+        return json(403, { message: "No tienes permisos para solicitar una reasignacion" });
+      if (!String(input.reason || "").trim())
+        return json(400, { message: "Debes indicar por que el tramite no aplica" });
+      const request = await call(
+        "GET",
+        `/databases/${DATABASE_ID}/collections/solicitudes/documents/${input.requestId}`,
+      );
+      if (
+        !isSuperAdmin &&
+        request.unidadAdministrativaId !== profile.unidadAdministrativaId
+      )
+        return json(403, { message: "La solicitud pertenece a otra unidad" });
+      const updated = await call(
+        "PATCH",
+        `/databases/${DATABASE_ID}/collections/solicitudes/documents/${request.$id}`,
+        {
+          data: {
+            estatus: "requiere_informacion",
+            datosTramite: JSON.stringify({
+              ...(() => { try { return JSON.parse(request.datosTramite || "{}"); } catch { return {}; } })(),
+              __seguimiento: {
+                ...(() => { try { return JSON.parse(request.datosTramite || "{}").__seguimiento || {}; } catch { return {}; } })(),
+                requiereReasignacion: true,
+                motivoReasignacion: String(input.reason).trim(),
+                unidadAnteriorId: request.unidadAdministrativaId,
+              },
+            }),
+            observaciones: String(input.reason).trim(),
+          },
+        },
+      );
+      await call(
+        "POST",
+        `/databases/${DATABASE_ID}/collections/historial_solicitud/documents`,
+        {
+          documentId: "unique()",
+          permissions: request.$permissions,
+          data: {
+            solicitudId: request.$id,
+            estatusAnterior: request.estatus,
+            estatusNuevo: "requiere_informacion",
+            comentario: `No aplica en la unidad actual. Reasignacion solicitada: ${String(input.reason).trim()}`,
+            realizadoPorUserId: userId,
+            fecha: new Date().toISOString(),
+          },
+        },
+      );
+      return json(200, updated);
+    }
+
+    if (input.action === "listReassignmentQueue") {
+      if (!isSuperAdmin && profile.rolSistema !== "enlace")
+        return json(403, { message: "Acceso exclusivo de enlaces" });
+      const result = await call(
+        "GET",
+        `/databases/${DATABASE_ID}/collections/solicitudes/documents?total=false&queries[]=${encodeURIComponent(JSON.stringify({ method: "limit", values: [500] }))}`,
+      );
+      const pending = (result.documents || []).filter((item) => {
+        try {
+          return item.requiereReasignacion || JSON.parse(item.datosTramite || "{}").__seguimiento?.requiereReasignacion;
+        } catch { return Boolean(item.requiereReasignacion); }
+      });
+      return json(200, {
+        requests: pending.map((item) => ({
+          id: item.$id,
+          folio: item.folio,
+          serviceId: item.tramiteServicioId,
+          unitId: item.unidadAdministrativaId,
+          applicantUserId: item.solicitanteUserId,
+          status: item.estatus,
+          requestedAt: item.fechaSolicitud,
+          notes: item.observaciones,
+          eventId: item.eventoAtencionId,
+          eventFolio: item.folioEvento,
+          programFolio: item.folioPrograma,
+          reassignmentRequired: true,
+          reassignmentReason: item.motivoReasignacion || (() => { try { return JSON.parse(item.datosTramite || "{}").__seguimiento?.motivoReasignacion; } catch { return undefined; } })(),
+          previousUnitId: item.unidadAnteriorId || (() => { try { return JSON.parse(item.datosTramite || "{}").__seguimiento?.unidadAnteriorId; } catch { return undefined; } })(),
+          applicantData: (() => { try { return JSON.parse(item.datosSolicitante || "{}"); } catch { return {}; } })(),
+          requestData: (() => { try { return JSON.parse(item.datosTramite || "{}"); } catch { return {}; } })(),
+        })),
+      });
+    }
+
+    if (input.action === "reassignRequest") {
+      if (!isSuperAdmin && profile.rolSistema !== "enlace")
+        return json(403, { message: "Acceso exclusivo de enlaces" });
+      const request = await call(
+        "GET",
+        `/databases/${DATABASE_ID}/collections/solicitudes/documents/${input.requestId}`,
+      );
+      const unit = await call(
+        "GET",
+        `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${input.unitId}`,
+      );
+      if (request.unidadAdministrativaId === unit.$id)
+        return json(400, { message: "Selecciona una unidad diferente" });
+      const permissions = (request.$permissions || []).filter(
+        (permission) => !permission.includes("team:"),
+      );
+      permissions.push(`read(\"team:${unit.teamId}\")`, `update(\"team:${unit.teamId}\")`);
+      const updated = await call(
+        "PATCH",
+        `/databases/${DATABASE_ID}/collections/solicitudes/documents/${request.$id}`,
+        {
+          data: {
+            unidadAdministrativaId: unit.$id,
+            estatus: "enviada",
+            datosTramite: JSON.stringify({
+              ...(() => { try { return JSON.parse(request.datosTramite || "{}"); } catch { return {}; } })(),
+              __seguimiento: {
+                ...(() => { try { return JSON.parse(request.datosTramite || "{}").__seguimiento || {}; } catch { return {}; } })(),
+                requiereReasignacion: false,
+                reasignadoPorUserId: userId,
+              },
+            }),
+            observaciones: input.comment || `Reasignada a ${unit.nombre}`,
+          },
+          permissions,
+        },
+      );
+      await call(
+        "POST",
+        `/databases/${DATABASE_ID}/collections/historial_solicitud/documents`,
+        {
+          documentId: "unique()",
+          permissions,
+          data: {
+            solicitudId: request.$id,
+            estatusAnterior: request.estatus,
+            estatusNuevo: "enviada",
+            comentario: input.comment || `Solicitud canalizada a ${unit.nombre}`,
+            realizadoPorUserId: userId,
+            fecha: new Date().toISOString(),
+          },
+        },
+      );
+      return json(200, updated);
+    }
+
+    if (input.action === "updateStaffUser") {
+      if (!isSuperAdmin || profile.rol !== "super_admin")
+        return json(403, { message: "Acceso exclusivo de superadministración" });
+      if (!String(input.email || "").toLowerCase().endsWith("@tabasco.gob.mx"))
+        return json(400, { message: "El usuario debe usar un correo @tabasco.gob.mx" });
+      if (!["secretaria", "enlace", "gestor", "capturista"].includes(input.role))
+        return json(400, { message: "Rol institucional no permitido" });
+      if (input.id === userId)
+        return json(400, { message: "No puedes modificar tu propio superadministrador desde esta vista" });
+      const isSecretary = input.role === "secretaria";
+      if (!isSecretary && !input.unitId)
+        return json(400, { message: "Debes seleccionar una unidad administrativa" });
+      const targetProfile = await call("GET", `/databases/${DATABASE_ID}/collections/usuarios_perfil/documents/${input.id}`);
+      const targetUser = await call("GET", `/users/${input.id}`);
+      const oldUnit = targetProfile.unidadAdministrativaId
+        ? await call("GET", `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${targetProfile.unidadAdministrativaId}`)
+        : null;
+      const newUnit = isSecretary
+        ? null
+        : await call("GET", `/databases/${DATABASE_ID}/collections/unidades_administrativas/documents/${input.unitId}`);
+      if (oldUnit && oldUnit.$id !== newUnit?.$id) {
+        const memberships = await call("GET", `/teams/${oldUnit.teamId}/memberships?total=false`);
+        const membership = (memberships.memberships || []).find((item) => item.userId === input.id);
+        if (membership) await call("DELETE", `/teams/${oldUnit.teamId}/memberships/${membership.$id}`);
+      }
+      if (newUnit && oldUnit?.$id !== newUnit.$id) {
+        const newMemberships = await call("GET", `/teams/${newUnit.teamId}/memberships?total=false`);
+        const alreadyMember = (newMemberships.memberships || []).some((item) => item.userId === input.id);
+        if (!alreadyMember)
+          await call("POST", `/teams/${newUnit.teamId}/memberships`, { roles: ["member"], userId: input.id });
+      }
+      const nextName = String(input.name).trim();
+      const nextEmail = String(input.email).trim().toLowerCase();
+      if (nextName !== String(targetUser.name || "").trim())
+        await call("PATCH", `/users/${input.id}/name`, { name: nextName });
+      if (nextEmail !== String(targetUser.email || "").trim().toLowerCase())
+        await call("PATCH", `/users/${input.id}/email`, { email: nextEmail });
+      await call("PATCH", `/users/${input.id}/status`, { status: input.active !== false });
+      await call("PUT", `/users/${input.id}/labels`, { labels: [input.role] });
+      const updated = await call("PATCH", `/databases/${DATABASE_ID}/collections/usuarios_perfil/documents/${input.id}`, {
+        data: {
+          email: nextEmail,
+          nombre: nextName,
+          rol: ["secretaria", "capturista", "gestor"].includes(input.role) ? "enlace" : input.role,
+          rolSistema: input.role,
+          unidadAdministrativaId: newUnit?.$id || null,
+          activo: input.active !== false,
+        },
+      });
+      return json(200, updated);
     }
 
     if (input.action === "createStaffUser") {
@@ -420,13 +725,66 @@ export default async ({ req, res, log, error }) => {
       ];
       if (!allowed.includes(input.status))
         return json(400, { message: "Estatus no permitido" });
-      const updated = await call(
-        "PATCH",
-        `/databases/${DATABASE_ID}/collections/solicitudes/documents/${request.$id}`,
-        {
-          data: { estatus: input.status, observaciones: input.comment || null },
-        },
-      );
+      if (
+        ["rechazada", "cancelada"].includes(input.status) &&
+        !String(input.discontinuationReason || input.comment || "").trim()
+      )
+        return json(400, {
+          message: "Indica el motivo por el que la solicitud no continuo",
+        });
+      if (
+        input.status === "concluida" &&
+        typeof input.receivedBenefit !== "boolean"
+      )
+        return json(400, {
+          message: "Indica si la persona recibio el apoyo o tramite",
+        });
+      let requestData = {};
+      try {
+        requestData = JSON.parse(request.datosTramite || "{}");
+      } catch {
+        requestData = {};
+      }
+      const tracking = {
+        ...(requestData.__seguimiento || {}),
+        resultadoFinal: input.finalResult || null,
+        motivoNoContinuidad: input.discontinuationReason || null,
+        apoyoRecibido:
+          typeof input.receivedBenefit === "boolean"
+            ? input.receivedBenefit
+            : null,
+        detalleBeneficio: input.benefitDetail || null,
+      };
+      const baseData = {
+        estatus: input.status,
+        observaciones: input.comment || null,
+        datosTramite: JSON.stringify({ ...requestData, __seguimiento: tracking }),
+      };
+      let updated;
+      try {
+        updated = await call(
+          "PATCH",
+          `/databases/${DATABASE_ID}/collections/solicitudes/documents/${request.$id}`,
+          {
+            data: {
+              ...baseData,
+              resultadoFinal: tracking.resultadoFinal,
+              motivoNoContinuidad: tracking.motivoNoContinuidad,
+              ...(typeof input.receivedBenefit === "boolean"
+                ? { apoyoRecibido: input.receivedBenefit }
+                : {}),
+            },
+          },
+        );
+      } catch (cause) {
+        // Compatibilidad temporal con instalaciones que todavía no tienen los
+        // atributos nuevos: el resultado permanece en datosTramite.
+        updated = await call(
+          "PATCH",
+          `/databases/${DATABASE_ID}/collections/solicitudes/documents/${request.$id}`,
+          { data: baseData },
+        );
+      }
       await call(
         "POST",
         `/databases/${DATABASE_ID}/collections/historial_solicitud/documents`,

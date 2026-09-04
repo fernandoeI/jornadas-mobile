@@ -1,5 +1,6 @@
 import { ExecutionMethod } from "react-native-appwrite";
 import { getAppwriteFunctions } from "./appwrite";
+import type { ServiceRequest } from "@/src/types/request";
 
 const FUNCTION_ID = "identity-api";
 
@@ -26,6 +27,16 @@ export interface SubmittedRequest {
   eventFolio?: string;
   programFolio?: string;
   status: string;
+  priorityOnReopening?: boolean;
+  emailSent?: boolean;
+  emailMessage?: string;
+}
+
+export interface ReportingStaffMember {
+  id: string;
+  name: string;
+  role: string;
+  unitId?: string;
 }
 
 export const identityApi = {
@@ -35,6 +46,7 @@ export const identityApi = {
     applicantData: unknown,
     requestData: unknown,
     eventId?: string,
+    recipientEmail?: string,
   ) =>
     execute<SubmittedRequest>({
       action: "submitRequest",
@@ -42,6 +54,7 @@ export const identityApi = {
       applicantData,
       requestData,
       eventId,
+      recipientEmail,
     }),
   createStaffUser: (data: {
     email: string;
@@ -50,6 +63,35 @@ export const identityApi = {
     unitId?: string;
     role: "secretaria" | "enlace" | "gestor" | "capturista";
   }) => execute({ action: "createStaffUser", ...data }),
-  updateStatus: (requestId: string, status: string, comment?: string) =>
-    execute({ action: "updateStatus", requestId, status, comment }),
+  updateStaffUser: (data: {
+    id: string;
+    email: string;
+    name: string;
+    unitId?: string;
+    role: "secretaria" | "enlace" | "gestor" | "capturista";
+    active: boolean;
+  }) => execute({ action: "updateStaffUser", ...data }),
+  updateStatus: (requestId: string, status: string, comment?: string, outcome?: {
+    finalResult?: string;
+    discontinuationReason?: string;
+    receivedBenefit?: boolean;
+    benefitDetail?: string;
+  }) => execute({ action: "updateStatus", requestId, status, comment, ...outcome }),
+  finishEvent: (eventId: string) => execute({ action: "finishEvent", eventId }),
+  getReportingStaff: () =>
+    execute<{ staff: ReportingStaffMember[] }>({ action: "reportingStaff" }),
+  requestReassignment: (requestId: string, reason: string) =>
+    execute({ action: "requestReassignment", requestId, reason }),
+  listReassignmentQueue: () =>
+    execute<{ requests: ServiceRequest[] }>({ action: "listReassignmentQueue" }),
+  reassignRequest: (requestId: string, unitId: string, comment?: string) =>
+    execute({ action: "reassignRequest", requestId, unitId, comment }),
+  saveAdministrativeUnit: (data: {
+    id?: string;
+    code: string;
+    name: string;
+    description?: string;
+    contactEmail?: string;
+    active: boolean;
+  }) => execute({ action: "saveAdministrativeUnit", ...data }),
 };

@@ -14,6 +14,7 @@ const FIELD_TYPES: { value: ServiceFormField["type"]; label: string }[] = [
   { value: "select", label: "Selección única" },
   { value: "multiselect", label: "Selección múltiple" },
   { value: "boolean", label: "Sí / No" },
+  { value: "file", label: "Archivo o documento" },
 ];
 
 export const isFormBuilderValid = (fields: ServiceFormField[]) =>

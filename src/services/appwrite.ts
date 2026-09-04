@@ -131,6 +131,7 @@ export const APPWRITE_CONFIG = {
     CATALOG_IMAGES: "catalog-images",
     IMAGES: "690cf3490012abf5e098", // ID de tu bucket de almacenamiento en Appwrite
     INE_IMAGES: "694ef0a10023fc5b74e1",
+    REQUEST_DOCUMENTS: "request-documents",
   },
 };
 

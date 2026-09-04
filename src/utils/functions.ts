@@ -20,7 +20,7 @@ export interface INEScanResult {
   primerApellido: string;
   segundoApellido: string;
   direccion: string;
-  genero: "masculino" | "femenino" | "no binaria";
+  genero: "Masculino" | "Femenino" | "No Binario";
   edad: string;
   curp: string;
 }
@@ -276,10 +276,10 @@ export const processINE = async (
         ?.toUpperCase() || "";
 
     const sexo = sexoLine.includes("H")
-      ? "masculino"
+      ? "Masculino"
       : sexoLine.includes("M")
-        ? "femenino"
-        : "no binaria";
+        ? "Femenino"
+        : "No Binario";
 
     const result = {
       ine: compressedFile, // Guardar la imagen comprimida
@@ -287,7 +287,7 @@ export const processINE = async (
       primerApellido: apellidoPaterno,
       segundoApellido: apellidoMaterno,
       direccion,
-      genero: sexo as "masculino" | "femenino" | "no binaria",
+      genero: sexo as "Masculino" | "Femenino" | "No Binario",
       edad: calcularEdadDesdeFecha(fechaNacimiento),
       curp,
     };

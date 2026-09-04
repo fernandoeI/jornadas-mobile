@@ -72,6 +72,7 @@ const databaseId = "jornadas";
 // El valor de negocio guardado en usuarios_perfil sigue siendo `super_admin`.
 const superAdmin = "label:superadmin";
 const enlace = "label:enlace";
+const capturista = "label:capturista";
 const solicitante = "label:solicitante";
 const read = (role) => `read(\"${role}\")`;
 const create = (role) => `create(\"${role}\")`;
@@ -110,6 +111,29 @@ await ensure(
       antivirus: true,
     }),
   () => request("GET", "/storage/buckets/catalog-images"),
+);
+
+await ensure(
+  "bucket request-documents",
+  () =>
+    request("POST", "/storage/buckets", {
+      bucketId: "request-documents",
+      name: "Documentos de solicitudes",
+      permissions: [
+        read("users"),
+        create("users"),
+        update(superAdmin),
+        del(superAdmin),
+      ],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 15728640,
+      allowedFileExtensions: ["pdf", "jpg", "jpeg", "png", "doc", "docx", "xls", "xlsx"],
+      compression: "gzip",
+      encryption: true,
+      antivirus: true,
+    }),
+  () => request("GET", "/storage/buckets/request-documents"),
 );
 
 const collections = [
@@ -336,6 +360,10 @@ const schemas = {
     attr.string("eventoAtencionId", 64, false),
     attr.string("folioEvento", 64, false),
     attr.string("folioPrograma", 80, false),
+    attr.boolean("prioridadReapertura", false, false),
+    attr.string("resultadoFinal", 80, false),
+    attr.string("motivoNoContinuidad", 1500, false),
+    attr.boolean("apoyoRecibido", false),
   ],
   documentos_solicitud: [
     attr.string("solicitudId", 64),

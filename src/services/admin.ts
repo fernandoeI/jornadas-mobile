@@ -75,7 +75,7 @@ export interface ServiceInput {
   cost?: string;
   active: boolean;
   formConfig?: object;
-  requirements: string[];
+  requirements: (string | ServiceRequirementInput)[];
   usesGlobalForm?: boolean;
   programFolioPrefix?: string;
   imageFileId?: string;
@@ -85,6 +85,13 @@ export interface ServiceInput {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+}
+
+export interface ServiceRequirementInput {
+  name: string;
+  description?: string;
+  documentType?: string;
+  required: boolean;
 }
 
 export type AttentionEventInput = Omit<AttentionEvent, "id"> & { id?: string };
@@ -140,8 +147,19 @@ export const adminService = {
       [Query.equal("activo", true), Query.orderDesc("version"), Query.limit(1)],
     );
     const doc: any = result.documents[0];
-    if (!doc) throw new Error("No existe una configuración global activa");
-    let config: { fields?: ServiceFormField[] } = {};
+    if (!doc)
+      return {
+        id: "",
+        name: "Formulario global",
+        version: 0,
+        active: true,
+        fields: [],
+        enableINEAnalysis: false,
+      };
+    let config: {
+      fields?: ServiceFormField[];
+      enableINEAnalysis?: boolean;
+    } = {};
     try {
       config = JSON.parse(doc.campos);
     } catch {
@@ -153,21 +171,33 @@ export const adminService = {
       version: doc.version,
       active: doc.activo,
       fields: config.fields || [],
+      enableINEAnalysis: Boolean(config.enableINEAnalysis),
     };
   },
 
   async saveGlobalForm(input: GlobalFormConfiguration) {
-    return databases().updateDocument(
-      databaseId,
-      APPWRITE_CONFIG.COLLECTIONS.CONFIGURACION_FORMULARIO_GLOBAL,
-      input.id,
-      {
-        nombre: input.name,
-        version: input.version,
-        activo: input.active,
-        campos: JSON.stringify({ fields: input.fields }),
-      },
-    );
+    const data = {
+      nombre: input.name,
+      version: input.version,
+      activo: input.active,
+      campos: JSON.stringify({
+        fields: input.fields,
+        enableINEAnalysis: Boolean(input.enableINEAnalysis),
+      }),
+    };
+    return input.id
+      ? databases().updateDocument(
+          databaseId,
+          APPWRITE_CONFIG.COLLECTIONS.CONFIGURACION_FORMULARIO_GLOBAL,
+          input.id,
+          data,
+        )
+      : databases().createDocument(
+          databaseId,
+          APPWRITE_CONFIG.COLLECTIONS.CONFIGURACION_FORMULARIO_GLOBAL,
+          ID.unique(),
+          data,
+        );
   },
 
   async listEvents(): Promise<AttentionEvent[]> {
@@ -186,8 +216,11 @@ export const adminService = {
       locality: doc.localidad,
       startsAt: doc.fechaInicio,
       endsAt: doc.fechaFin,
-      latitude: doc.latitud,
-      longitude: doc.longitud,
+      // Appwrite can return numeric attributes as serialized values depending on
+      // how older records were imported. Keep the domain model consistent so
+      // map consumers can reliably validate and position every event.
+      latitude: Number(doc.latitud),
+      longitude: Number(doc.longitud),
       active: doc.activo,
       folioPrefix: doc.prefijoFolio,
       capacity: doc.capacidad,
@@ -223,7 +256,7 @@ export const adminService = {
       sede: input.name.trim(),
       direccion: input.address.trim(),
       fechaInicio: input.startsAt,
-      fechaFin: input.startsAt,
+      fechaFin: input.endsAt,
       latitud: input.latitude,
       longitud: input.longitude,
       activo: input.active,
@@ -317,15 +350,21 @@ export const adminService = {
         ),
       ),
     );
-    for (const [index, name] of input.requirements.entries()) {
+    for (const [index, rawRequirement] of input.requirements.entries()) {
+      const requirement =
+        typeof rawRequirement === "string"
+          ? { name: rawRequirement, required: true }
+          : rawRequirement;
       await databases().createDocument(
         databaseId,
         APPWRITE_CONFIG.COLLECTIONS.REQUISITOS,
         ID.unique(),
         {
           tramiteServicioId: id,
-          nombre: name.trim(),
-          obligatorio: true,
+          nombre: requirement.name.trim(),
+          descripcion: requirement.description?.trim() || null,
+          tipoDocumento: requirement.documentType?.trim() || null,
+          obligatorio: requirement.required,
           orden: index + 1,
           activo: true,
         },

@@ -96,13 +96,13 @@ export const INEForm: React.FC<INEFormProps> = ({
       <View style={{ gap: 8 }}>
         <Text className="text-typography-500">Género</Text>
         <Input
-          placeholder="masculino / femenino"
+          placeholder="Masculino / Femenino"
           value={formData.genero ?? ""}
           onChangeText={(val) =>
             setFormData((prev) => ({
               ...prev,
               genero:
-                val === "masculino" || val === "femenino" ? val : prev.genero,
+                val === "Masculino" || val === "Femenino" ? val : prev.genero,
             }))
           }
         />

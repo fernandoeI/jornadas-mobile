@@ -42,9 +42,11 @@ export const useSignInForm = () => {
     },
     onError: (error: any) => {
       console.error("Error en login:", error);
-      const errorMessage =
-        error?.message ||
-        "Error al iniciar sesión. Por favor intenta nuevamente.";
+      const rawMessage = error?.message || "";
+      const errorMessage = /rate limit|too many requests|exceeded/i.test(rawMessage)
+        ? "Se alcanzó el límite de intentos de inicio de sesión para este correo. Espera antes de volver a intentarlo y verifica tu contraseña."
+        : rawMessage ||
+          "Error al iniciar sesión. Por favor intenta nuevamente.";
       setError(errorMessage);
     },
   });

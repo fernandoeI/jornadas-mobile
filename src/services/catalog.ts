@@ -41,7 +41,7 @@ export const catalogService = {
     const result = await db().listDocuments(
       APPWRITE_CONFIG.DATABASE_ID,
       APPWRITE_CONFIG.COLLECTIONS.TRAMITES_SERVICIOS,
-      [Query.equal("activo", true), Query.orderAsc("orden"), Query.limit(100)],
+      [Query.orderAsc("orden"), Query.limit(100)],
     );
     return result.documents.map((doc: any) => ({
       id: doc.$id,
@@ -139,6 +139,7 @@ export const catalogService = {
       version: doc.version,
       active: doc.activo,
       fields: parsed.fields || [],
+      enableINEAnalysis: Boolean(parsed.enableINEAnalysis),
     };
   },
 
@@ -152,6 +153,7 @@ export const catalogService = {
         Query.limit(100),
       ],
     );
+    const now = Date.now();
     return result.documents.map((doc: any) => ({
       id: doc.$id,
       name: doc.nombre,
@@ -162,12 +164,16 @@ export const catalogService = {
       address: doc.direccion,
       startsAt: doc.fechaInicio,
       endsAt: doc.fechaFin,
-      latitude: doc.latitud,
-      longitude: doc.longitud,
+      latitude: Number(doc.latitud),
+      longitude: Number(doc.longitud),
       active: doc.activo,
       folioPrefix: doc.prefijoFolio,
       capacity: doc.capacidad,
       notes: doc.notas,
-    }));
+    })).filter((event) => {
+      const startsAt = new Date(event.startsAt).getTime();
+      const endsAt = new Date(event.endsAt).getTime();
+      return event.active && now >= startsAt && now <= endsAt;
+    });
   },
 };

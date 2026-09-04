@@ -15,6 +15,7 @@ const Splash = () => {
           router.replace(
             user?.role === "super_admin" ||
             user?.role === "gestor" ||
+            user?.role === "enlace" ||
             user?.role === "secretaria"
               ? ("/(protected)/admin" as any)
               : "/(protected)/(tabs)/home",

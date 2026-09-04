@@ -22,6 +22,12 @@ export default function HomeScreen() {
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const isCapturista = user?.role === "capturista";
+  const serviceIsOpen = (service: (typeof services)[number]) => {
+    const now = Date.now();
+    return service.active &&
+      (!service.opensAt || now >= new Date(service.opensAt).getTime()) &&
+      (!service.closesAt || now <= new Date(service.closesAt).getTime());
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -40,7 +46,7 @@ export default function HomeScreen() {
         )}
 
         {/* Sección de eventos de atención */}
-        {events.length > 0 && (
+        {events.length > 0 ? (
           <View className="mb-5 gap-2">
             <Text className="text-lg font-bold">Evento de atención</Text>
             <Text className="text-sm text-muted-foreground">
@@ -94,6 +100,11 @@ export default function HomeScreen() {
               ))}
             </View>
           </View>
+        ) : (
+          <View className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-5">
+            <Text className="font-bold text-amber-900">No hay un evento activo</Text>
+            <Text className="mt-1 text-sm text-amber-800">Es necesario crear o activar un evento para registrar solicitudes.</Text>
+          </View>
         )}
 
         {/* Catálogo de trámites */}
@@ -111,11 +122,14 @@ export default function HomeScreen() {
           <View>
             <Text className="mb-3 text-lg font-bold">Trámites y servicios</Text>
             <View className="flex-row flex-wrap justify-between">
-              {services.map((service, index) => (
+              {services.map((service, index) => {
+                const open = serviceIsOpen(service);
+                return (
                 <Pressable
                   key={service.id}
                   className="mb-4 min-h-36 w-[48%] justify-between rounded-2xl border border-border bg-card p-4 active:opacity-70"
-                  onPress={() => handleNavigate({ id: service.id, title: service.name, subtitle: service.description, estado: service.active }, selectedEventId)}
+                  disabled={!selectedEventId}
+                  onPress={() => handleNavigate({ id: service.id, title: service.name, subtitle: service.description, estado: open }, selectedEventId)}
                 >
                   <View className="flex-row items-center justify-between">
                     <View
@@ -126,8 +140,8 @@ export default function HomeScreen() {
                         {String(index + 1).padStart(2, "0")}
                       </Text>
                     </View>
-                    <Text className="text-xs font-semibold" style={{ color: service.active ? "#981646" : "#afafafff" }}>
-                      {service.active ? "Activo" : "Inactivo"}
+                    <Text className="text-xs font-semibold" style={{ color: open ? "#981646" : "#b45309" }}>
+                      {open ? "Abierto" : service.opensAt && new Date(service.opensAt).getTime() > Date.now() ? `Abre ${new Date(service.opensAt).toLocaleDateString("es-MX")}` : "Cerrado · acepta prioridad"}
                     </Text>
                   </View>
 
@@ -138,7 +152,7 @@ export default function HomeScreen() {
                     <ChevronRight color="#981646" size={19} strokeWidth={2.5} />
                   </View>
                 </Pressable>
-              ))}
+              );})}
             </View>
           </View>
         )}
